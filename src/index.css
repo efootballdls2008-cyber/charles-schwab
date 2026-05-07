@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #110b2d;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2b1978;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a28539;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+@layer components {
+
+    /* Nav */
+    .nav-link {
+        @apply inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-[#c8c8d8] hover:text-white transition-colors bg-transparent border-none cursor-pointer;
+    }
+
+    .nav-dropdown {
+        @apply absolute left-0 mt-2 w-52 rounded-xl shadow-2xl py-2 z-50;
+        background-color: #160f35;
+        border: 1px solid rgba(162, 133, 57, 0.25);
+    }
+
+    .nav-dropdown-item {
+        @apply flex items-center px-4 py-2.5 text-sm text-[#c8c8d8] hover:text-[#a28539] transition-colors no-underline;
+    }
+
+    .nav-icon {
+        @apply w-4 mr-3;
+        color: #a28539;
+    }
+
+    /* Buttons */
+    .btn-login {
+        @apply inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg text-white transition-all duration-200 no-underline;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+    }
+
+    .btn-login:hover {
+        background: rgba(255, 255, 255, 0.13);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .btn-start-trading {
+        @apply inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 no-underline;
+        background: linear-gradient(135deg, #a28539, #c9a84c);
+        color: #0d0824;
+        box-shadow: 0 4px 15px rgba(162, 133, 57, 0.35);
+    }
+
+    .btn-start-trading:hover {
+        filter: brightness(1.12);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(162, 133, 57, 0.5);
+    }
+
+    .btn-ghost-gold {
+        @apply inline-flex items-center justify-center px-8 py-3 font-semibold rounded-lg no-underline transition-all duration-200;
+        border: 2px solid #a28539;
+        color: #a28539;
+        background: transparent;
+    }
+
+    .btn-ghost-gold:hover {
+        background: #a28539;
+        color: #110b2d;
+        box-shadow: 0 0 20px rgba(162, 133, 57, 0.4);
+        transform: translateY(-2px);
+    }
+
+    /* Platform icons */
+    .platform-icon-link {
+        @apply p-1.5 rounded text-[#6b6b8a] hover:text-white transition-colors;
+    }
+
+    /* Stat cards */
+    .stat-card {
+        @apply flex flex-col items-center text-center p-4 rounded-2xl cursor-default transition-all duration-300;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(162, 133, 57, 0.15);
+    }
+
+    .stat-card:hover {
+        background: rgba(162, 133, 57, 0.08);
+        border-color: rgba(162, 133, 57, 0.5);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(162, 133, 57, 0.15);
+    }
+
+    .stat-card--featured {
+        background: rgba(162, 133, 57, 0.07);
+        border-color: rgba(162, 133, 57, 0.4);
+    }
+
+    .stat-card--featured:hover {
+        background: rgba(162, 133, 57, 0.12);
+        border-color: rgba(162, 133, 57, 0.65);
+        box-shadow: 0 12px 32px rgba(162, 133, 57, 0.2);
+    }
+
+    .stat-icon {
+        @apply w-12 h-12 mb-3 flex items-center justify-center rounded-xl flex-shrink-0;
+        background: linear-gradient(135deg, rgba(162, 133, 57, 0.2), rgba(43, 25, 120, 0.4));
+        border: 1px solid rgba(162, 133, 57, 0.35);
+        box-shadow: 0 4px 16px rgba(162, 133, 57, 0.15);
+    }
+
+    .stat-icon--featured {
+        background: linear-gradient(135deg, rgba(201, 168, 76, 0.3), rgba(162, 133, 57, 0.15));
+        border-color: rgba(201, 168, 76, 0.5);
+        box-shadow: 0 4px 16px rgba(162, 133, 57, 0.25);
+    }
+}
