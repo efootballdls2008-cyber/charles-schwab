@@ -586,7 +586,7 @@ export default function CryptoPage() {
                             onClick={(e) => {
                               e.stopPropagation()
                               setBuyAsset({
-                                type: tab,
+                                type: tab === 'stocks' ? 'stock' : 'crypto',
                                 symbol: row.symbol,
                                 name: row.name,
                                 color: row.color,

@@ -206,7 +206,7 @@ function PlatformShowcase() {
                   </tr>
                 </thead>
                 <tbody>
-                  {marketRows.map((row, i) => (
+                  {marketRows.map((row) => (
                     <tr
                       key={row.symbol}
                       className="transition-colors hover:bg-white/5"

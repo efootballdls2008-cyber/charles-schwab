@@ -40,6 +40,7 @@ import CryptoPage from './pages/user/CryptoPage'
 import ExchangePage from './pages/user/ExchangePage'
 import NotificationsPage from './pages/user/Notifications'
 import Positions from './pages/user/Positions'
+import KYCPage from './pages/user/KYC'
 
 export default function App() {
   return (
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/user/exchange" element={<ExchangePage />} />
         <Route path="/user/notifications" element={<NotificationsPage />} />
         <Route path="/user/positions" element={<Positions />} />
+        <Route path="/user/kyc" element={<KYCPage />} />
       </Routes>
       </SocketProvider>
     </AuthProvider>

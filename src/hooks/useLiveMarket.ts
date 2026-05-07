@@ -11,7 +11,6 @@ export interface LiveCoin {
   sparkline_in_7d?: { price: number[] }
 }
 
-const COINS = ['bitcoin', 'ethereum', 'apple', 'tesla', 'amazon', 'microsoft']
 // CoinGecko free API — stocks aren't available, so we use top crypto + simulate stocks
 const CRYPTO_IDS = 'bitcoin,ethereum,solana,binancecoin,ripple,cardano'
 

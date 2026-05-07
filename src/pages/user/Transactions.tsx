@@ -50,11 +50,6 @@ interface UnifiedTx {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function toIso(dateStr: string): string {
-  // Handles "Jun 24, 2024" → sortable
-  try { return new Date(dateStr).toISOString() } catch { return dateStr }
-}
-
 function mapDeposit(d: Deposit): UnifiedTx {
   return {
     id: `dep-${d.id}`,
@@ -141,12 +136,13 @@ function CategoryBadge({ category }: { category: TxCategory }) {
 }
 
 function StatusBadge({ status }: { status: UnifiedTx['status'] }) {
-  const map = {
-    completed: { label: 'Completed', bg: 'rgba(74,222,128,0.12)',  color: '#4ade80', border: 'rgba(74,222,128,0.25)'  },
-    pending:   { label: 'Pending',   bg: 'rgba(251,191,36,0.10)',  color: '#fbbf24', border: 'rgba(251,191,36,0.25)'  },
-    cancelled: { label: 'Cancelled', bg: 'rgba(248,113,113,0.10)', color: '#f87171', border: 'rgba(248,113,113,0.25)' },
+  const map: Record<string, { label: string; bg: string; color: string; border: string }> = {
+    completed:  { label: 'Completed',  bg: 'rgba(74,222,128,0.12)',  color: '#4ade80', border: 'rgba(74,222,128,0.25)'  },
+    pending:    { label: 'Pending',    bg: 'rgba(251,191,36,0.10)',  color: '#fbbf24', border: 'rgba(251,191,36,0.25)'  },
+    cancelled:  { label: 'Cancelled',  bg: 'rgba(248,113,113,0.10)', color: '#f87171', border: 'rgba(248,113,113,0.25)' },
+    processing: { label: 'Processing', bg: 'rgba(139,92,246,0.10)',  color: '#a78bfa', border: 'rgba(139,92,246,0.25)'  },
   }
-  const s = map[status]
+  const s = map[status] ?? map['pending']
   return (
     <span
       className="px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap"

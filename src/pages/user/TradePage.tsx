@@ -112,7 +112,7 @@ function HoldingsPanel({ holdings, loading }: { holdings: Holding[]; loading: bo
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto divide-y" style={{ divideColor: 'rgba(255,255,255,0.05)' }}>
+      <div className="flex-1 overflow-y-auto divide-y divide-white/5">
         {loading ? (
           <div className="flex items-center justify-center py-10 text-gray-500 text-sm">
             <i className="fas fa-spinner fa-spin mr-2" />

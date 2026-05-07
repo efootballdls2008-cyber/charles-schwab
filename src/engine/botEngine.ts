@@ -372,7 +372,7 @@ class BotEngine {
   private async persistSettings() {
     if (!this.settingsId) return
     try {
-      await patch<BotSettings>(`/botSettings/${this.settingsId}`, {
+      await patchApi<BotSettings>(`/botSettings/${this.settingsId}`, {
         ...this.state,
         userId: this.userId,
       })

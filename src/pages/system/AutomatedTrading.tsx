@@ -148,26 +148,6 @@ const botTypes = [
   },
 ]
 
-// ─── Animated counter ─────────────────────────────────────────────────────────
-
-function AnimatedStat({ value, label, delay }: { value: string; label: string; delay: number }) {
-  const { ref, visible } = useInView()
-  return (
-    <div
-      ref={ref}
-      className="text-center transition-all duration-700"
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(24px)',
-        transitionDelay: `${delay}ms`,
-      }}
-    >
-      <p className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#c9a84c' }}>{value}</p>
-      <p className="text-sm text-gray-400 mt-1">{label}</p>
-    </div>
-  )
-}
-
 // ─── Feature card ─────────────────────────────────────────────────────────────
 
 function FeatureCard({

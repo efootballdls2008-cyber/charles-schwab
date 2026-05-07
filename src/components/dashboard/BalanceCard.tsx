@@ -9,7 +9,7 @@ interface BalanceCardProps {
   onWithdraw?: () => void
 }
 
-export default function BalanceCard({ user, onDeposit, onWithdraw }: BalanceCardProps) {
+export default function BalanceCard({ user, onDeposit: _onDeposit, onWithdraw: _onWithdraw }: BalanceCardProps) {
   const balance = user?.balance ?? 0
 
   const { deposits } = useDeposits(user?.id)

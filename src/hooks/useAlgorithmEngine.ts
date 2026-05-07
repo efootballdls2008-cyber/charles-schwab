@@ -32,7 +32,7 @@ export function useAlgorithmEngine(
   // Subscribe to engine updates
   useEffect(() => {
     const unsub = botEngine.subscribe(() => forceUpdate((n) => n + 1))
-    return unsub
+    return () => { unsub() }
   }, [])
 
   // Feed live price to engine
@@ -49,7 +49,7 @@ export function useAlgorithmEngine(
   useEffect(() => {
     if (!onTradeClose) return
     const unsub = botEngine.onTradeClose(onTradeClose)
-    return unsub
+    return () => { unsub() }
   }, [onTradeClose])
 
   // Wrap start/stop/updateSettings

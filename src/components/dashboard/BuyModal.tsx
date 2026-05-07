@@ -27,7 +27,7 @@ const fmt = (n: number, decimals = 2) =>
   }).format(n)
 
 export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
-  const { user, updateBalance } = useAuth()
+  const { user } = useAuth()
   const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form')
   const [quantityStr, setQuantityStr] = useState('')
   const [loading, setLoading] = useState(false)

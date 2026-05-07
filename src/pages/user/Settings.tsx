@@ -104,7 +104,7 @@ export default function Settings() {
         withdrawRoutingNumber, withdrawAccountType, withdrawSwiftCode,
       }
       await patch(`/users/${user.id}`, fields)
-      updateUser(fields)
+      updateUser(fields as Parameters<typeof updateUser>[0])
       setBankingToast('saved')
     } catch {
       setBankingToast('error')
@@ -116,10 +116,10 @@ export default function Settings() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#0d0824' }}>
-      <DashboardSidebar />
+      <DashboardSidebar open={false} onClose={() => {}} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader />
+        <DashboardHeader onMenuClick={() => {}} />
 
         <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: '#110b2d' }}>
 

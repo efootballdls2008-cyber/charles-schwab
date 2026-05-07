@@ -15,6 +15,19 @@ export interface User {
   address?: string
   memberSince?: string
   accountStatus?: string
+  // Banking — deposit account (where user sends FROM)
+  depositBankName?: string
+  depositAccountName?: string
+  depositAccountNumber?: string
+  depositRoutingNumber?: string
+  depositAccountType?: string
+  // Banking — withdrawal account (where platform sends TO)
+  withdrawBankName?: string
+  withdrawAccountName?: string
+  withdrawAccountNumber?: string
+  withdrawRoutingNumber?: string
+  withdrawAccountType?: string
+  withdrawSwiftCode?: string
 }
 
 // Shape returned by POST /auth/login (no { success, data } wrapper)
