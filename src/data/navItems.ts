@@ -18,5 +18,6 @@ export const dashNavItems: DashNavItem[] = [
   { key: 'crypto',       label: 'Crypto',        icon: 'fas fa-coins',        to: '/user/crypto' },
   { key: 'exchange',     label: 'Exchange',      icon: 'fas fa-sync-alt',     to: '/user/exchange' },
   { key: 'settings',     label: 'Settings',      icon: 'fas fa-cog',          to: '/user/settings' },
+  { key: 'kyc',          label: 'KYC Verify',    icon: 'fas fa-id-card',      to: '/user/kyc' },
   { key: 'notifications', label: 'Notifications', icon: 'fas fa-bell',         to: '/user/notifications' },
 ]

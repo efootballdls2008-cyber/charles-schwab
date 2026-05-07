@@ -24,4 +24,6 @@ export const ENDPOINTS = {
   userNotificationsMarkAllRead: (userId: number) => `/userNotifications/mark-all-read?userId=${userId}`,
   notifications: (userId: number) => `/notifications?userId=${userId}`,
   notificationById: (id: number) => `/notifications/${id}`,
+  kyc: '/kyc',
+  kycMe: '/kyc/me',
 }
