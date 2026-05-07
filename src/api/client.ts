@@ -9,12 +9,25 @@ function getAuthHeaders(): HeadersInit {
   return headers
 }
 
+/** Unwrap the server's `{ success, data }` envelope. */
+async function unwrap<T>(res: Response, path: string): Promise<T> {
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { message?: string }
+    throw new Error(body.message ?? `REQUEST ${path} failed: ${res.status}`)
+  }
+  const json = await res.json() as { success: boolean; data: T } | T
+  // If the server wraps in { success, data }, return data; otherwise return as-is.
+  if (json !== null && typeof json === 'object' && 'data' in (json as object)) {
+    return (json as { success: boolean; data: T }).data
+  }
+  return json as T
+}
+
 export async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: getAuthHeaders(),
   })
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
-  return res.json() as Promise<T>
+  return unwrap<T>(res, path)
 }
 
 export async function post<T>(path: string, body: unknown): Promise<T> {
@@ -23,8 +36,7 @@ export async function post<T>(path: string, body: unknown): Promise<T> {
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
-  return res.json() as Promise<T>
+  return unwrap<T>(res, path)
 }
 
 export async function patch<T>(path: string, body: unknown): Promise<T> {
@@ -33,8 +45,7 @@ export async function patch<T>(path: string, body: unknown): Promise<T> {
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`)
-  return res.json() as Promise<T>
+  return unwrap<T>(res, path)
 }
 
 export async function put<T>(path: string, body: unknown): Promise<T> {
@@ -43,8 +54,7 @@ export async function put<T>(path: string, body: unknown): Promise<T> {
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`)
-  return res.json() as Promise<T>
+  return unwrap<T>(res, path)
 }
 
 export async function del<T>(path: string): Promise<T> {
@@ -52,6 +62,5 @@ export async function del<T>(path: string): Promise<T> {
     method: 'DELETE',
     headers: getAuthHeaders(),
   })
-  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`)
-  return res.json() as Promise<T>
+  return unwrap<T>(res, path)
 }

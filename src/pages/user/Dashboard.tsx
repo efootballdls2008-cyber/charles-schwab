@@ -4,12 +4,13 @@ import { motion } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import BalanceCard from '../../components/dashboard/BalanceCard'
-import QuickActions from '../../components/dashboard/QuickActions'
+import QuickActions, { DEFAULT_STOCK, DEFAULT_CRYPTO } from '../../components/dashboard/QuickActions'
 import ProfitOverviewChart from '../../components/dashboard/ProfitOverviewChart'
 import BalanceBreakdown from '../../components/dashboard/BalanceBreakdown'
 import MarketOverviewTable from '../../components/dashboard/MarketOverviewTable'
 import RecentActivity from '../../components/dashboard/RecentActivity'
 import DepositWithdrawModal, { type ModalMode } from '../../components/dashboard/DepositWithdrawModal'
+import BuyModal, { type BuyAsset } from '../../components/dashboard/BuyModal'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const { user, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [modal, setModal] = useState<ModalMode | null>(null)
+  const [buyAsset, setBuyAsset] = useState<BuyAsset | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) navigate('/login', { replace: true })
@@ -42,6 +44,13 @@ export default function Dashboard() {
         <DepositWithdrawModal
           mode={modal}
           onClose={() => setModal(null)}
+        />
+      )}
+      {/* Buy Stock / Crypto modal */}
+      {buyAsset && (
+        <BuyModal
+          asset={buyAsset}
+          onClose={() => setBuyAsset(null)}
         />
       )}
       <main
@@ -106,7 +115,10 @@ export default function Dashboard() {
                       </motion.button>
                     </div>
 
-                    <QuickActions />
+                    <QuickActions
+                      onBuyStock={() => setBuyAsset(DEFAULT_STOCK)}
+                      onBuyCrypto={() => setBuyAsset(DEFAULT_CRYPTO)}
+                    />
                   </div>
                 </div>
               </div>

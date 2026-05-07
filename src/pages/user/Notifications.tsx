@@ -32,6 +32,16 @@ function typeConfig(type: Notification['type']): { icon: string; color: string; 
       return { icon: 'fas fa-arrow-down-to-line', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)', label: 'Deposit' }
     case 'withdrawal':
       return { icon: 'fas fa-arrow-up-from-line', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Withdrawal' }
+    case 'order':
+      return { icon: 'fas fa-bag-shopping', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Order' }
+    case 'bot_open':
+      return { icon: 'fas fa-robot', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', label: 'Bot Trade' }
+    case 'bot_close':
+      return { icon: 'fas fa-robot', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', label: 'Bot Trade' }
+    case 'take_profit':
+      return { icon: 'fas fa-circle-check', color: '#4ade80', bg: 'rgba(74,222,128,0.12)', label: 'Take Profit' }
+    case 'stop_loss':
+      return { icon: 'fas fa-circle-xmark', color: '#f87171', bg: 'rgba(248,113,113,0.12)', label: 'Stop Loss' }
     case 'price_alert':
       return { icon: 'fas fa-bell', color: '#f97316', bg: 'rgba(249,115,22,0.12)', label: 'Price Alert' }
     case 'security':
@@ -48,11 +58,14 @@ function filterNotifications(notifications: Notification[], tab: FilterTab): Not
     case 'Unread':
       return notifications.filter((n) => !n.read)
     case 'Trade':
-      return notifications.filter((n) => n.type === 'trade')
+      return notifications.filter((n) =>
+        n.type === 'trade' || n.type === 'bot_open' || n.type === 'bot_close' ||
+        n.type === 'take_profit' || n.type === 'stop_loss'
+      )
     case 'Deposits':
       return notifications.filter((n) => n.type === 'deposit' || n.type === 'withdrawal')
     case 'Alerts':
-      return notifications.filter((n) => n.type === 'price_alert')
+      return notifications.filter((n) => n.type === 'price_alert' || n.type === 'order')
     case 'System':
       return notifications.filter((n) => n.type === 'system' || n.type === 'security')
     default:
@@ -186,6 +199,15 @@ export default function NotificationsPage() {
     if (!isAuthenticated) navigate('/login', { replace: true })
   }, [isAuthenticated, navigate])
 
+  // Auto-mark all as read when the page is opened
+  useEffect(() => {
+    if (isAuthenticated && unreadCount > 0) {
+      markAllAsRead()
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
+
   if (!isAuthenticated) return null
 
   const filtered = filterNotifications(notifications, activeTab)
@@ -241,8 +263,8 @@ export default function NotificationsPage() {
             {[
               { label: 'Total', value: notifications.length, icon: 'fas fa-bell', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
               { label: 'Unread', value: unreadCount, icon: 'fas fa-envelope', color: '#4ade80', bg: 'rgba(74,222,128,0.1)' },
-              { label: 'Trade Alerts', value: notifications.filter((n) => n.type === 'trade').length, icon: 'fas fa-chart-line', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
-              { label: 'Price Alerts', value: notifications.filter((n) => n.type === 'price_alert').length, icon: 'fas fa-bell', color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+              { label: 'Trades', value: notifications.filter((n) => ['trade','bot_open','bot_close','take_profit','stop_loss'].includes(n.type)).length, icon: 'fas fa-chart-line', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+              { label: 'Deposits', value: notifications.filter((n) => n.type === 'deposit' || n.type === 'withdrawal').length, icon: 'fas fa-wallet', color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
             ].map((stat) => (
               <div
                 key={stat.label}

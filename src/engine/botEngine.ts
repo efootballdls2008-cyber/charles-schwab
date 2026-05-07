@@ -1,7 +1,7 @@
 // ─── Persistent Bot Engine (module-level singleton) ──────────────────────────
 // Lives outside React component lifecycle so the bot keeps running even when
 // the user navigates away from /user/exchange or logs out.
-// State is persisted to json-server (db.json) via botSettings + botTrades.
+// State is persisted to the backend via botSettings + botTrades.
 
 import { post, patch as patchApi, get } from '../api/client'
 

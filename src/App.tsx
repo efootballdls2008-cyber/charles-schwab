@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { SocketProvider } from './context/SocketContext'
 import Layout from './components/layout/Layout'
 
 // Pages
@@ -43,7 +44,8 @@ import Positions from './pages/user/Positions'
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <SocketProvider>
+        <Routes>
         {/* Public routes with shared Header/Footer layout */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
@@ -84,6 +86,7 @@ export default function App() {
         <Route path="/user/notifications" element={<NotificationsPage />} />
         <Route path="/user/positions" element={<Positions />} />
       </Routes>
+      </SocketProvider>
     </AuthProvider>
   )
 }

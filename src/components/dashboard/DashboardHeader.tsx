@@ -136,7 +136,15 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         {/* ── Bell + Notification Dropdown ── */}
         <div ref={notifRef} className="relative">
           <button
-            onClick={() => { setNotifOpen((o) => !o); setUserOpen(false) }}
+            onClick={() => {
+              const opening = !notifOpen
+              setNotifOpen(opening)
+              setUserOpen(false)
+              // Auto-mark all as read when opening the dropdown
+              if (opening && unreadCount > 0) {
+                markAllAsRead()
+              }
+            }}
             className="relative w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
             style={{ background: 'rgba(255,255,255,0.06)' }}
             aria-label="Notifications"
@@ -200,18 +208,57 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
                       const isDeposit = n.type === 'deposit'
                       const isWithdrawal = n.type === 'withdrawal'
                       const isTrade = n.type === 'trade'
-                      const iconColor = isDeposit ? '#4ade80' : isWithdrawal ? '#f87171' : '#60a5fa'
-                      const iconBg = isDeposit ? 'rgba(74,222,128,0.12)' : isWithdrawal ? 'rgba(248,113,113,0.12)' : 'rgba(96,165,250,0.12)'
-                      const icon = isDeposit ? 'fa-arrow-down' : isWithdrawal ? 'fa-arrow-up' : 'fa-chart-line'
+                      const isBotOpen = n.type === 'bot_open'
+                      const isBotClose = n.type === 'bot_close'
+                      const isTakeProfit = n.type === 'take_profit'
+                      const isStopLoss = n.type === 'stop_loss'
+                      const isOrder = n.type === 'order'
+                      const isSecurity = n.type === 'security'
+                      const isPriceAlert = n.type === 'price_alert'
+
+                      const iconColor = isDeposit ? '#4ade80'
+                        : isWithdrawal ? '#f87171'
+                        : isTakeProfit ? '#4ade80'
+                        : isStopLoss ? '#f87171'
+                        : isBotOpen || isBotClose ? '#a78bfa'
+                        : isTrade ? '#60a5fa'
+                        : isOrder ? '#f59e0b'
+                        : isSecurity ? '#f43f5e'
+                        : isPriceAlert ? '#f97316'
+                        : '#9ca3af'
+
+                      const iconBg = isDeposit ? 'rgba(74,222,128,0.12)'
+                        : isWithdrawal ? 'rgba(248,113,113,0.12)'
+                        : isTakeProfit ? 'rgba(74,222,128,0.12)'
+                        : isStopLoss ? 'rgba(248,113,113,0.12)'
+                        : isBotOpen || isBotClose ? 'rgba(167,139,250,0.12)'
+                        : isTrade ? 'rgba(96,165,250,0.12)'
+                        : isOrder ? 'rgba(245,158,11,0.12)'
+                        : isSecurity ? 'rgba(244,63,94,0.12)'
+                        : isPriceAlert ? 'rgba(249,115,22,0.12)'
+                        : 'rgba(156,163,175,0.12)'
+
+                      const icon = isDeposit ? 'fa-arrow-down-to-line'
+                        : isWithdrawal ? 'fa-arrow-up-from-line'
+                        : isTakeProfit ? 'fa-circle-check'
+                        : isStopLoss ? 'fa-circle-xmark'
+                        : isBotOpen ? 'fa-robot'
+                        : isBotClose ? 'fa-robot'
+                        : isTrade ? 'fa-chart-line'
+                        : isOrder ? 'fa-bag-shopping'
+                        : isSecurity ? 'fa-shield-halved'
+                        : isPriceAlert ? 'fa-bell'
+                        : 'fa-circle-info'
 
                       return (
                         <div
                           key={n.id}
-                          className="group flex items-start gap-3 px-4 py-3 transition-all hover:bg-white/5 relative"
+                          className="group flex items-start gap-3 px-4 py-3 transition-all hover:bg-white/5 relative cursor-pointer"
                           style={{
                             borderBottom: '1px solid rgba(255,255,255,0.04)',
                             background: n.read ? 'transparent' : 'rgba(74,222,128,0.02)',
                           }}
+                          onClick={() => { setNotifOpen(false); navigate('/user/notifications') }}
                         >
                           {/* Icon */}
                           <div

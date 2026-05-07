@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { useDeposits } from '../../hooks/useDeposits'
 import { useState, useEffect } from 'react'
 import { get } from '../../api/client'
@@ -75,6 +76,7 @@ function formatPurchase(p: Purchase): ActivityItem {
 }
 
 export default function RecentActivity({ userId }: RecentActivityProps) {
+  const navigate = useNavigate()
   const { deposits, loading: dLoading, error: dError } = useDeposits(userId)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [pLoading, setPLoading]   = useState(true)
@@ -113,7 +115,11 @@ export default function RecentActivity({ userId }: RecentActivityProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-white">Recent Activity</h2>
-        <button className="text-xs font-medium" style={{ color: '#8b5cf6' }}>
+        <button
+          onClick={() => navigate('/user/transactions')}
+          className="text-xs font-medium transition-opacity hover:opacity-75"
+          style={{ color: '#8b5cf6' }}
+        >
           View All
         </button>
       </div>

@@ -1,34 +1,75 @@
+/**
+ * useNotifications — fetches user notifications from the DB and listens for
+ * real-time updates via the shared Socket.io connection (SocketContext).
+ *
+ * Notification types:
+ *   deposit | withdrawal | trade | order | bot_open | bot_close |
+ *   take_profit | stop_loss | system | security | price_alert
+ */
 import { useState, useEffect, useCallback } from 'react'
-import { get, patch } from '../api/client'
+import { get, patch, del } from '../api/client'
 import { ENDPOINTS } from '../api/endpoints'
-import type { BotTrade } from './useAlgorithmEngine'
+import { useSocket } from '../context/SocketContext'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type NotificationType =
+  | 'trade'
+  | 'deposit'
+  | 'withdrawal'
+  | 'price_alert'
+  | 'security'
+  | 'system'
+  | 'order'
+  | 'bot_open'
+  | 'bot_close'
+  | 'take_profit'
+  | 'stop_loss'
 
 export interface Notification {
   id: number
   userId: number
-  type: 'trade' | 'deposit' | 'withdrawal' | 'price_alert' | 'security' | 'system'
+  type: NotificationType
   title: string
   message: string
+  /** ISO timestamp */
   timestamp: string
   read: boolean
+  relatedId?: string | null
+  relatedType?: string | null
 }
 
-// ── Raw deposit shape from db.json ────────────────────────────────────────────
-interface RawDeposit {
+// ── Raw shape from backend ────────────────────────────────────────────────────
+
+interface RawNotification {
   id: number
   userId: number
-  type: 'deposit' | 'withdraw'
-  method: string
-  amount: number
-  currency: string
-  status: string
-  date: string
-  time: string
-  txId: string
-  note?: string
+  type: string
+  title: string
+  message: string
+  isRead: boolean
+  relatedId?: string | null
+  relatedType?: string | null
+  createdAt: string
 }
 
-interface UseNotificationsResult {
+function rawToNotification(r: RawNotification): Notification {
+  return {
+    id: r.id,
+    userId: r.userId,
+    type: (r.type as NotificationType) || 'system',
+    title: r.title,
+    message: r.message,
+    timestamp: r.createdAt,
+    read: !!r.isRead,
+    relatedId: r.relatedId ?? null,
+    relatedType: r.relatedType ?? null,
+  }
+}
+
+// ── Hook result ───────────────────────────────────────────────────────────────
+
+export interface UseNotificationsResult {
   notifications: Notification[]
   loading: boolean
   error: string | null
@@ -39,76 +80,24 @@ interface UseNotificationsResult {
   refresh: () => void
 }
 
-// ── Synthesise a Notification from a deposit row ──────────────────────────────
-function depositToNotification(d: RawDeposit): Notification {
-  const isDeposit = d.type === 'deposit'
-  // Build an ISO timestamp from "2026-05-06" + "8:10 AM"
-  const ts = (() => {
-    try {
-      return new Date(`${d.date} ${d.time}`).toISOString()
-    } catch {
-      return new Date().toISOString()
-    }
-  })()
-
-  return {
-    id: d.id,
-    userId: d.userId,
-    type: isDeposit ? 'deposit' : 'withdrawal',
-    title: isDeposit
-      ? `Deposit — $${d.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : `Withdrawal — $${d.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    message: `${d.method} · ${d.txId}${d.note ? ` · ${d.note}` : ''}`,
-    timestamp: ts,
-    read: false,
-  }
-}
-
-// ── Synthesise a Notification from a bot trade ────────────────────────────────
-function tradeToNotification(t: BotTrade, baseId: number): Notification {
-  const isClosed = t.status === 'closed'
-  const profit   = t.pnl >= 0
-  return {
-    id: baseId,
-    userId: typeof t.userId === 'number' ? t.userId : 1,
-    type: 'trade',
-    title: isClosed
-      ? `Trade Closed — ${t.pair} ${profit ? '▲' : '▼'} $${Math.abs(t.pnl).toFixed(2)}`
-      : `Trade Opened — ${t.pair} ${t.side.toUpperCase()}`,
-    message: `${t.strategy ?? 'Manual'} · ${t.side === 'buy' ? 'Long' : 'Short'} · Entry $${t.entryPrice.toLocaleString()}`,
-    timestamp: isClosed && t.closedAt ? t.closedAt : t.openedAt,
-    read: isClosed, // closed trades start as read; open ones are "new"
-  }
-}
+// ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useNotifications(userId: number | undefined): UseNotificationsResult {
   const [notifications, setNotifications] = useState<Notification[]>([])
-  // Track which ids the user has manually marked read / deleted this session
-  const [readIds,    setReadIds]    = useState<Set<number>>(new Set())
-  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { socket } = useSocket()
 
+  // ── Load from DB ────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     if (!userId) { setLoading(false); return }
     setLoading(true)
     try {
-      const [deposits, botTrades] = await Promise.all([
-        get<RawDeposit[]>(ENDPOINTS.deposits(userId)).catch(() => [] as RawDeposit[]),
-        get<BotTrade[]>(ENDPOINTS.botTrades(userId)).catch(() => [] as BotTrade[]),
-      ])
-
-      const depositNotifs: Notification[] = deposits.map(depositToNotification)
-
-      // Use a high base id so trade ids don't clash with deposit ids
-      const tradeNotifs: Notification[] = botTrades.map((t, i) =>
-        tradeToNotification(t, 10000 + i)
-      )
-
-      const all = [...depositNotifs, ...tradeNotifs]
+      const raw = await get<RawNotification[]>(ENDPOINTS.userNotifications(userId))
+      const mapped = (raw ?? [])
+        .map(rawToNotification)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-      setNotifications(all)
+      setNotifications(mapped)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load notifications')
@@ -119,31 +108,70 @@ export function useNotifications(userId: number | undefined): UseNotificationsRe
 
   useEffect(() => { void load() }, [load])
 
-  // Apply session-level read/delete overrides on top of loaded data
-  const visible = notifications
-    .filter((n) => !deletedIds.has(n.id))
-    .map((n) => readIds.has(n.id) ? { ...n, read: true } : n)
+  // ── Socket.io real-time updates ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!socket || !userId) return
+
+    const handleNew = (raw: RawNotification) => {
+      // Only process notifications for this user
+      if (raw.userId !== undefined && raw.userId !== userId) return
+      const notif = rawToNotification(raw)
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === notif.id)) return prev
+        return [notif, ...prev]
+      })
+    }
+
+    const handleUpdated = (raw: RawNotification) => {
+      if (raw.userId !== undefined && raw.userId !== userId) return
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === raw.id ? { ...n, read: !!raw.isRead } : n))
+      )
+    }
+
+    const handleAllRead = () => {
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    }
+
+    const handleDeleted = ({ id }: { id: number }) => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+    }
+
+    socket.on('notification:new', handleNew)
+    socket.on('notification:updated', handleUpdated)
+    socket.on('notification:allRead', handleAllRead)
+    socket.on('notification:deleted', handleDeleted)
+
+    return () => {
+      socket.off('notification:new', handleNew)
+      socket.off('notification:updated', handleUpdated)
+      socket.off('notification:allRead', handleAllRead)
+      socket.off('notification:deleted', handleDeleted)
+    }
+  }, [socket, userId])
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
 
   const markAsRead = useCallback((id: number) => {
-    setReadIds((prev) => new Set([...prev, id]))
-    // Best-effort persist to db if the notification is a real deposit record
-    if (id < 10000) {
-      void patch(ENDPOINTS.notificationById(id), { read: true }).catch(() => {/* ignore */})
-    }
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    void patch(ENDPOINTS.userNotificationById(id), { isRead: true }).catch(() => {/* ignore */})
   }, [])
 
   const markAllAsRead = useCallback(() => {
-    setReadIds((prev) => new Set([...prev, ...notifications.map((n) => n.id)]))
-  }, [notifications])
+    if (!userId) return
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    void patch(ENDPOINTS.userNotificationsMarkAllRead(userId), {}).catch(() => {/* ignore */})
+  }, [userId])
 
   const deleteNotification = useCallback((id: number) => {
-    setDeletedIds((prev) => new Set([...prev, id]))
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    void del(ENDPOINTS.userNotificationById(id)).catch(() => {/* ignore */})
   }, [])
 
-  const unreadCount = visible.filter((n) => !n.read).length
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   return {
-    notifications: visible,
+    notifications,
     loading,
     error,
     unreadCount,

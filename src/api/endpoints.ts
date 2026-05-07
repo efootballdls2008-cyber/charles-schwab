@@ -21,6 +21,7 @@ export const ENDPOINTS = {
   purchasesAll: '/purchases',
   userNotifications: (userId: number) => `/userNotifications?userId=${userId}`,
   userNotificationById: (id: number) => `/userNotifications/${id}`,
+  userNotificationsMarkAllRead: (userId: number) => `/userNotifications/mark-all-read?userId=${userId}`,
   notifications: (userId: number) => `/notifications?userId=${userId}`,
   notificationById: (id: number) => `/notifications/${id}`,
 }

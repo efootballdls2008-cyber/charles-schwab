@@ -27,6 +27,5 @@ export async function getOrders(userId: number, type: 'sell' | 'buy'): Promise<O
 }
 
 export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
-  const response = await post<{ success: boolean; data: Order }>('/orders', payload)
-  return response.data
+  return post<Order>('/orders', payload)
 }

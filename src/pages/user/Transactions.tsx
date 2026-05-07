@@ -5,6 +5,8 @@ import { useAuth } from '../../hooks/useAuth'
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
 import DashboardHeader from '../../components/dashboard/DashboardHeader'
 import DepositWithdrawModal, { type ModalMode } from '../../components/dashboard/DepositWithdrawModal'
+import BuyModal, { type BuyAsset } from '../../components/dashboard/BuyModal'
+import { DEFAULT_STOCK, DEFAULT_CRYPTO } from '../../components/dashboard/QuickActions'
 import { getDeposits, type Deposit } from '../../services/depositService'
 import { getTransactions, getTradeHistory } from '../../services/transactionService'
 import type { Transaction, TradeHistory } from '../../services/transactionService'
@@ -227,6 +229,7 @@ export default function Transactions() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [modal, setModal] = useState<ModalMode | null>(null)
+  const [buyAsset, setBuyAsset] = useState<BuyAsset | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
@@ -303,12 +306,21 @@ export default function Transactions() {
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#0d0824' }}>
       <DashboardSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Modal */}
+      {/* Deposit / Withdraw Modal */}
       {modal && (
         <DepositWithdrawModal
           mode={modal}
           onClose={() => setModal(null)}
           onSuccess={() => { setModal(null); loadData() }}
+        />
+      )}
+
+      {/* Buy Stock / Crypto Modal */}
+      {buyAsset && (
+        <BuyModal
+          asset={buyAsset}
+          onClose={() => setBuyAsset(null)}
+          onSuccess={() => { setBuyAsset(null); loadData() }}
         />
       )}
 
@@ -325,7 +337,7 @@ export default function Transactions() {
                 All deposits, withdrawals, transfers and trades in one place.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <motion.button
                 onClick={() => setModal('deposit')}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -346,8 +358,79 @@ export default function Transactions() {
                 <i className="fas fa-arrow-up text-xs" />
                 Withdraw
               </motion.button>
+              <motion.button
+                onClick={() => setBuyAsset(DEFAULT_STOCK)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <i className="fas fa-chart-line text-xs" />
+                Buy Stocks
+              </motion.button>
+              <motion.button
+                onClick={() => setBuyAsset(DEFAULT_CRYPTO)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <i className="fab fa-bitcoin text-xs" />
+                Buy Crypto
+              </motion.button>
             </div>
           </div>
+
+          {/* ── Available Balance card ── */}
+          <motion.div
+            className="rounded-2xl px-5 py-4 mb-5 flex items-center justify-between flex-wrap gap-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(26,16,64,0.95) 0%, rgba(45,27,142,0.6) 100%)',
+              border: '1px solid rgba(139,92,246,0.25)',
+            }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.35)' }}
+              >
+                <i className="fas fa-wallet text-base" style={{ color: '#a78bfa' }} />
+              </div>
+              <div>
+                <p className="text-xs font-medium" style={{ color: 'rgba(196,181,253,0.7)' }}>
+                  Available Balance
+                </p>
+                <motion.p
+                  key={user?.balance}
+                  className="text-2xl font-bold text-white leading-tight"
+                  initial={{ opacity: 0.5, y: 3 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                  }).format(user?.balance ?? 0)}
+                </motion.p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
+                style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}
+              >
+                <i className="fas fa-circle text-xs" style={{ fontSize: '6px' }} />
+                Account Active
+              </span>
+              <span className="text-xs" style={{ color: 'rgba(156,163,175,0.6)' }}>
+                {allTx.length} total transactions
+              </span>
+            </div>
+          </motion.div>
 
           {/* ── Summary cards ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
