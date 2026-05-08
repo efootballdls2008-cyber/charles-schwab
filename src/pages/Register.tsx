@@ -43,10 +43,11 @@ export default function Register() {
         await login(email, password)
         setTimeout(() => navigate('/user/dashboard'), 1400)
       } else {
-        showToast('An account with this email already exists.', 'error')
+        showToast('Registration failed. Please try again.', 'error')
       }
-    } catch {
-      showToast('Registration failed. Please try again.', 'error')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Registration failed. Please try again.'
+      showToast(message, 'error')
     } finally {
       setLoading(false)
     }

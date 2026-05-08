@@ -37,12 +37,12 @@ export default function TickerTape() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-30"
+      className="fixed bottom-0 left-0 right-0 z-30 w-full"
       style={{ backgroundColor: '#0d0824', borderTop: '1px solid rgba(162,133,57,0.2)' }}
     >
       <div
         ref={containerRef}
-        className="tradingview-widget-container"
+        className="tradingview-widget-container w-full"
         style={{ height: 46 }}
       >
         <div

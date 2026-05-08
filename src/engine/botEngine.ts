@@ -21,11 +21,17 @@ export interface BotTrade {
   amount: number
   pnl: number
   pnlPct: number
+  finalPnl?: number | null
+  displayPnl?: number | null
+  expectedProfit?: number | null
   strategy: StrategyName
   signal: string
+  timeframe?: string
   openedAt: string
   closedAt: string | null
   status: 'open' | 'closed'
+  closeReason?: string | null
+  remainingSeconds?: number | null
 }
 
 export interface AlgoSignal {
@@ -57,6 +63,7 @@ export interface AlgoState {
   autoReinvest: boolean
   maxOpenTrades: number
   dailyProfitTarget: number
+  confidenceThreshold: number
 }
 
 export interface BotSettings {
@@ -73,6 +80,8 @@ export interface BotSettings {
   autoReinvest: boolean
   maxOpenTrades: number
   dailyProfitTarget: number
+  confidenceThreshold: number
+  tradeDurationSeconds: number | null
 }
 
 export interface AlgoPerformance {
@@ -248,6 +257,7 @@ export const DEFAULT_STATE: AlgoState = {
   autoReinvest: true,
   maxOpenTrades: 3,
   dailyProfitTarget: 15,
+  confidenceThreshold: 45,
 }
 
 type EngineListener = () => void
@@ -273,6 +283,11 @@ class BotEngine {
   private tradeCloseListeners: Set<TradeCloseListener> = new Set()
   private initialized = false
   private initializing = false
+  
+  // Throttling for API updates
+  private lastPnlUpdate = 0
+  private pendingPnlUpdate: { pnl: number; pnlPct: number } | null = null
+  private pnlUpdateTimeout: ReturnType<typeof setTimeout> | null = null
 
   // ── Subscribe / unsubscribe ──────────────────────────────────────────────
 
@@ -331,6 +346,7 @@ class BotEngine {
           autoReinvest: s.autoReinvest,
           maxOpenTrades: s.maxOpenTrades,
           dailyProfitTarget: s.dailyProfitTarget,
+          confidenceThreshold: s.confidenceThreshold ?? 45,
         }
       } else {
         // Create default settings record
@@ -408,17 +424,9 @@ class BotEngine {
     this.startLoop()
     this.notify()
 
-    // Fire first signal after 2s
+    // Quick entry: Generate signal immediately and force entry within 20s max
     setTimeout(() => {
-      if (this.priceHistory.length >= 26) {
-        const sig = generateSignal(this.priceHistory, this.state.strategy, this.state.riskLevel)
-        this.signal = sig
-        if (sig.type !== 'HOLD') {
-          const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
-          this.executeTrade(sig, price)
-        }
-        this.notify()
-      }
+      this.forceQuickEntry()
     }, 2000)
   }
 
@@ -445,6 +453,72 @@ class BotEngine {
     this.notify()
   }
 
+  // ── Force quick entry within 20 seconds ────────────────────────────────────
+
+  private async forceQuickEntry() {
+    if (!this.state.running || this.openTrade) return
+
+    let attempts = 0
+    const maxAttempts = 4 // 4 attempts over 20 seconds
+    const attemptInterval = 5000 // 5 seconds between attempts
+
+    const tryEntry = async () => {
+      attempts++
+      this.scanStatus = `Quick scan ${attempts}/${maxAttempts} — finding entry point…`
+      
+      if (this.priceHistory.length >= 26) {
+        const sig = generateSignal(this.priceHistory, this.state.strategy, this.state.riskLevel)
+        this.signal = sig
+        
+        // Lower confidence threshold for quick entry (use current signal)
+        const quickThreshold = Math.max(35, this.state.confidenceThreshold - 15)
+        
+        if (sig.type !== 'HOLD' && sig.confidence >= quickThreshold) {
+          const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
+          this.scanStatus = `${sig.type} signal found — executing trade…`
+          await this.executeTrade(sig, price)
+          this.notify()
+          return true // Entry successful
+        }
+        
+        // If no good signal and this is the last attempt, force entry with current market conditions
+        if (attempts >= maxAttempts) {
+          const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
+          const forcedSignal: AlgoSignal = {
+            type: Math.random() > 0.5 ? 'BUY' : 'SELL',
+            reason: 'Market entry — algorithm timeout override',
+            confidence: 45,
+            indicators: sig.indicators,
+            timestamp: Date.now(),
+          }
+          this.signal = forcedSignal
+          this.scanStatus = `Timeout override — entering ${forcedSignal.type} position`
+          await this.executeTrade(forcedSignal, price)
+          this.notify()
+          return true
+        }
+      }
+      
+      this.notify()
+      return false
+    }
+
+    // Try entry immediately
+    if (await tryEntry()) return
+
+    // Set up retry attempts every 5 seconds
+    const retryInterval = setInterval(async () => {
+      if (!this.state.running || this.openTrade || attempts >= maxAttempts) {
+        clearInterval(retryInterval)
+        return
+      }
+      
+      if (await tryEntry()) {
+        clearInterval(retryInterval)
+      }
+    }, attemptInterval)
+  }
+
   // ── Internal loop ────────────────────────────────────────────────────────
 
   private startLoop() {
@@ -461,7 +535,6 @@ class BotEngine {
         'Evaluating EMA crossover…',
         'Analysing volume profile…',
         'Running signal confirmation…',
-        'Checking risk parameters…',
       ]
       this.scanStatus = SCAN_MESSAGES[tick % SCAN_MESSAGES.length]
 
@@ -472,7 +545,8 @@ class BotEngine {
 
       this.checkExitConditions(currentPrice)
 
-      if (tick % 3 === 0) {
+      // Generate signals more frequently - every tick instead of every 3rd tick
+      if (!this.openTrade) {
         const newSignal = generateSignal(prices, this.state.strategy, this.state.riskLevel)
         this.signal = newSignal
         if (newSignal.type !== 'HOLD') {
@@ -482,7 +556,7 @@ class BotEngine {
       }
 
       this.notify()
-    }, 8000)
+    }, 4000) // Reduced from 8000ms to 4000ms for faster response
 
     this.elapsedId = setInterval(() => {
       this.elapsed += 1
@@ -496,13 +570,14 @@ class BotEngine {
         this.updateUnrealizedPnL(currentPrice)
         this.notify()
       }
-    }, 3000) // Update every 3 seconds
+    }, 2000) // Update every 2 seconds instead of 3
   }
 
   private stopLoop() {
     if (this.intervalId !== null) { clearInterval(this.intervalId); this.intervalId = null }
     if (this.elapsedId !== null) { clearInterval(this.elapsedId); this.elapsedId = null }
     if (this.pnlUpdateId !== null) { clearInterval(this.pnlUpdateId); this.pnlUpdateId = null }
+    if (this.pnlUpdateTimeout !== null) { clearTimeout(this.pnlUpdateTimeout); this.pnlUpdateTimeout = null }
   }
 
   // ── Trade execution ──────────────────────────────────────────────────────
@@ -515,11 +590,21 @@ class BotEngine {
       await this.closeTrade(this.openTrade, currentPrice, 'signal-reversal')
     }
 
-    // Open new trade
-    if (!this.openTrade && sig.type !== 'HOLD' && sig.confidence >= 60) {
+    // Use configured confidence threshold (default 45%)
+    const minConfidence = this.state.confidenceThreshold ?? 45
+
+    // AI Scalper Pro on 1m: open up to 3 positions within 1–5 minutes
+    const isScalper1m = this.state.strategy === 'AI Scalper Pro' && this.state.timeframe === '1m'
+    const maxTrades = isScalper1m ? 3 : 1
+
+    // Count currently open trades for this user
+    const openCount = this.trades.filter(t => t.status === 'open').length
+
+    // Open new trade - be more aggressive about entry
+    if (openCount < maxTrades && sig.type !== 'HOLD' && sig.confidence >= minConfidence) {
       const amount = calcPositionSize(this.balance, this.state.riskLevel, currentPrice)
       const newTrade: BotTrade = {
-        id: `bot-${Date.now()}`,
+        id: `bot-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         userId: this.userId,
         pair: this.state.pair,
         side: sig.type === 'BUY' ? 'buy' : 'sell',
@@ -534,9 +619,70 @@ class BotEngine {
         closedAt: null,
         status: 'open',
       }
-      this.openTrade = newTrade
+      
+      // Update status immediately
+      this.scanStatus = `✓ ${sig.type} position opened at ${currentPrice.toFixed(2)}`
+      
+      // Only track single open trade in engine (backend handles multi-position for 1m)
+      if (!this.openTrade) this.openTrade = newTrade
       this.trades = [newTrade, ...this.trades]
-      try { await post('/botTrades', newTrade) } catch { /* non-critical */ }
+      
+      try {
+        // Persist to DB and capture the server-assigned UUID
+        const saved = await post<BotTrade>('/botTrades', {
+          ...newTrade,
+          timeframe: this.state.timeframe,
+        })
+        // Replace the local temp ID with the real DB UUID so PATCH/close works correctly
+        const serverTrade: BotTrade = { ...newTrade, id: saved.id }
+        if (this.openTrade?.id === newTrade.id) this.openTrade = serverTrade
+        this.trades = this.trades.map((t) => t.id === newTrade.id ? serverTrade : t)
+      } catch (err) {
+        console.error('[BotEngine] Failed to persist trade to DB:', err)
+        // Remove the trade from local state if it couldn't be saved — positions page
+        // only shows DB-backed trades, so keeping a non-persisted trade would cause
+        // a mismatch (shown in panel but not in /user/positions).
+        if (this.openTrade?.id === newTrade.id) this.openTrade = null
+        this.trades = this.trades.filter((t) => t.id !== newTrade.id)
+        this.scanStatus = 'Trade entry failed — retrying next signal…'
+      }
+
+      // For AI Scalper 1m: schedule additional positions with random delay
+      if (isScalper1m && openCount === 0) {
+        for (let i = 1; i < 3; i++) {
+          const delay = (30 + Math.random() * 90) * 1000 // Reduced to 30s–2min stagger
+          setTimeout(async () => {
+            if (!this.state.running) return
+            const extraTrade: BotTrade = {
+              id: `bot-${Date.now()}-${i}`,
+              userId: this.userId,
+              pair: this.state.pair,
+              side: sig.type === 'BUY' ? 'buy' : 'sell',
+              entryPrice: this.currentPrice > 0 ? this.currentPrice : currentPrice,
+              exitPrice: null,
+              amount: calcPositionSize(this.balance, this.state.riskLevel, this.currentPrice || currentPrice),
+              pnl: 0,
+              pnlPct: 0,
+              strategy: this.state.strategy,
+              signal: `${sig.reason} [position ${i + 1}/3]`,
+              openedAt: new Date().toISOString(),
+              closedAt: null,
+              status: 'open',
+            }
+            this.trades = [extraTrade, ...this.trades]
+            try {
+              const savedExtra = await post<BotTrade>('/botTrades', { ...extraTrade, timeframe: this.state.timeframe })
+              const serverExtra: BotTrade = { ...extraTrade, id: savedExtra.id }
+              this.trades = this.trades.map((t) => t.id === extraTrade.id ? serverExtra : t)
+            } catch {
+              this.trades = this.trades.filter((t) => t.id !== extraTrade.id)
+            }
+            this.notify()
+          }, delay)
+        }
+      }
+      
+      this.notify()
     }
   }
 
@@ -625,13 +771,46 @@ class BotEngine {
       t.id === open.id ? this.openTrade! : t
     )
 
-    // Persist to database (throttled - only update every 8 seconds to avoid spam)
+    // Throttled database update - only update every 10 seconds to avoid rate limiting
+    this.throttledPnlUpdate(open.id, parseFloat(pnl.toFixed(2)), parseFloat(pnlPct.toFixed(2)))
+  }
+
+  // Throttled P&L update method to prevent rate limiting
+  private throttledPnlUpdate(tradeId: string, pnl: number, pnlPct: number) {
+    const now = Date.now()
+    const minInterval = 10000 // 10 seconds minimum between API calls
+    
+    // Store the latest values
+    this.pendingPnlUpdate = { pnl, pnlPct }
+    
+    // If we recently updated, schedule a delayed update
+    if (now - this.lastPnlUpdate < minInterval) {
+      if (this.pnlUpdateTimeout) {
+        clearTimeout(this.pnlUpdateTimeout)
+      }
+      
+      const delay = minInterval - (now - this.lastPnlUpdate)
+      this.pnlUpdateTimeout = setTimeout(() => {
+        this.executePnlUpdate(tradeId)
+      }, delay)
+      return
+    }
+    
+    // Update immediately if enough time has passed
+    this.executePnlUpdate(tradeId)
+  }
+
+  private async executePnlUpdate(tradeId: string) {
+    if (!this.pendingPnlUpdate) return
+    
+    const { pnl, pnlPct } = this.pendingPnlUpdate
+    this.lastPnlUpdate = Date.now()
+    this.pendingPnlUpdate = null
+    
     try {
-      await patchApi(`/botTrades/${open.id}`, {
-        pnl: parseFloat(pnl.toFixed(2)),
-        pnlPct: parseFloat(pnlPct.toFixed(2)),
-      })
-    } catch {
+      await patchApi(`/botTrades/${tradeId}`, { pnl, pnlPct })
+    } catch (error) {
+      console.warn('P&L update failed (non-critical):', error)
       // Non-critical - UI will still show correct values
     }
   }

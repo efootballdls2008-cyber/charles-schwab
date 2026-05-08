@@ -53,7 +53,8 @@ export async function createWithdraw(
   userId: number,
   amount: number,
   method: string,
-  note: string = ''
+  note: string = '',
+  recipientDetails: Record<string, string> = {}
 ): Promise<{ deposit: Deposit; newBalance: number }> {
   // Get current user balance
   const user = await get<{ balance: number }>(`/users/${userId}`)
@@ -62,7 +63,14 @@ export async function createWithdraw(
     throw new Error('Insufficient balance')
   }
 
-  // Create withdraw record with PENDING status — balance is deducted after admin approval
+  // Build a note that embeds recipient details so admin can see them
+  const detailLines = Object.entries(recipientDetails)
+    .filter(([, v]) => v.trim())
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(' | ')
+  const fullNote = [detailLines, note].filter(Boolean).join(' — ')
+
+  // Create withdraw record with PENDING status — balance is reserved immediately on the backend
   const now = new Date()
   const withdraw: Omit<Deposit, 'id'> = {
     userId,
@@ -74,11 +82,11 @@ export async function createWithdraw(
     date: now.toISOString().split('T')[0],
     time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
     txId: `#WTH-${String(Date.now()).slice(-5)}`,
-    note,
+    note: fullNote,
   }
 
   const created = await post<Deposit>(ENDPOINTS.depositsAll, withdraw)
 
-  // Return current balance unchanged — it will update when admin approves
-  return { deposit: created, newBalance: user.balance }
+  // Balance is deducted immediately on the backend (reserved) — reflect that
+  return { deposit: created, newBalance: user.balance - amount }
 }

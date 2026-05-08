@@ -21,6 +21,9 @@ interface PlatformAccount {
   routingNumber: string
   accountType: string
   swiftCode: string
+  paymentMethod: string
+  walletAddress: string
+  network: string
   isDefault: boolean
   status: string
 }
@@ -32,10 +35,46 @@ interface PlatformLimits {
   maxWithdrawalAmount: number
 }
 
+// Recipient detail field definitions per withdrawal method
+interface RecipientField {
+  key: string
+  label: string
+  placeholder: string
+  type?: string
+}
+
+const RECIPIENT_FIELDS: Record<string, RecipientField[]> = {
+  'Bank Transfer': [
+    { key: 'bankName',       label: 'Bank Name',           placeholder: 'e.g. Chase Bank' },
+    { key: 'accountName',    label: 'Account Holder Name', placeholder: 'Full name on account' },
+    { key: 'accountNumber',  label: 'Account Number',      placeholder: 'e.g. 000123456789' },
+    { key: 'routingNumber',  label: 'Routing Number',      placeholder: 'e.g. 021000021' },
+    { key: 'accountType',    label: 'Account Type',        placeholder: 'Checking or Savings' },
+  ],
+  'Wire Transfer': [
+    { key: 'bankName',       label: 'Bank Name',           placeholder: 'e.g. Bank of America' },
+    { key: 'accountName',    label: 'Account Holder Name', placeholder: 'Full name on account' },
+    { key: 'accountNumber',  label: 'Account Number',      placeholder: 'e.g. 000123456789' },
+    { key: 'routingNumber',  label: 'Routing / ABA Number', placeholder: 'e.g. 026009593' },
+    { key: 'swiftCode',      label: 'SWIFT / BIC Code',    placeholder: 'e.g. BOFAUS3N' },
+    { key: 'bankAddress',    label: 'Bank Address',        placeholder: 'Full bank branch address' },
+  ],
+  'Credit Card': [
+    { key: 'cardHolderName', label: 'Cardholder Name',     placeholder: 'Name on card' },
+    { key: 'cardNumber',     label: 'Card Number',         placeholder: 'Last 4 digits only', type: 'text' },
+    { key: 'billingAddress', label: 'Billing Address',     placeholder: 'Street, City, State, ZIP' },
+  ],
+  'Crypto': [
+    { key: 'walletAddress',  label: 'Wallet Address',      placeholder: 'Your crypto wallet address' },
+    { key: 'network',        label: 'Network / Chain',     placeholder: 'e.g. ERC-20, BEP-20, TRC-20' },
+    { key: 'coinSymbol',     label: 'Coin / Token',        placeholder: 'e.g. USDT, BTC, ETH' },
+  ],
+}
+
 const METHODS = [
   { value: 'Bank Transfer', icon: 'fas fa-university',   label: 'Bank Transfer' },
-  { value: 'Credit Card',   icon: 'fas fa-credit-card',  label: 'Credit Card'   },
   { value: 'Wire Transfer', icon: 'fas fa-exchange-alt', label: 'Wire Transfer' },
+  { value: 'Credit Card',   icon: 'fas fa-credit-card',  label: 'Credit Card'   },
   { value: 'Crypto',        icon: 'fas fa-coins',        label: 'Crypto'        },
 ]
 
@@ -45,10 +84,11 @@ const fmt = (n: number) =>
 
 export default function DepositWithdrawModal({ mode, onClose, onSuccess }: DepositWithdrawModalProps) {
   const { user } = useAuth()
-  const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form')
+  const [step, setStep] = useState<'form' | 'recipient' | 'confirm' | 'success'>('form')
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState(METHODS[0].value)
   const [note, setNote] = useState('')
+  const [recipientDetails, setRecipientDetails] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [platformAccount, setPlatformAccount] = useState<PlatformAccount | null>(null)
@@ -68,15 +108,23 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
   const minAmount = isDeposit ? limits.minDepositAmount : limits.minWithdrawalAmount
   const maxAmount = isDeposit ? limits.maxDepositAmount : limits.maxWithdrawalAmount
 
-  // Load default platform account and limits
+  const currentFields = RECIPIENT_FIELDS[method] ?? []
+
+  // Reset recipient fields when method changes
+  useEffect(() => {
+    setRecipientDetails({})
+  }, [method])
+
   const loadPlatformData = useCallback(async () => {
     try {
+      // ?context=deposit returns accounts assigned to 'deposit' or 'all',
+      // ordered by is_default DESC — first active result is the right one.
       const [accounts, settingsArr] = await Promise.all([
-        get<PlatformAccount[]>('/platformAccounts'),
+        get<PlatformAccount[]>('/platformAccounts?context=deposit'),
         get<PlatformLimits[]>(ENDPOINTS.platformSettings),
       ])
-      const def = accounts.find(a => a.isDefault && a.status === 'active')
-      if (def) setPlatformAccount(def)
+      const active = accounts.find(a => a.status === 'active')
+      if (active) setPlatformAccount(active)
       if (settingsArr?.[0]) {
         const s = settingsArr[0]
         setLimits({
@@ -86,7 +134,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
           maxWithdrawalAmount: s.maxWithdrawalAmount,
         })
       }
-    } catch { /* silent — not critical */ }
+    } catch { /* silent */ }
   }, [])
 
   useEffect(() => {
@@ -104,6 +152,18 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
 
   const canProceed = numAmount >= minAmount && numAmount <= maxAmount && !amountError
 
+  // All required recipient fields must be filled
+  const recipientComplete = currentFields.every(f => (recipientDetails[f.key] ?? '').trim() !== '')
+
+  function handleFormContinue() {
+    if (!canProceed) return
+    if (!isDeposit) {
+      setStep('recipient')
+    } else {
+      setStep('confirm')
+    }
+  }
+
   async function handleConfirm() {
     if (!user?.id) return
     setLoading(true)
@@ -111,7 +171,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
     try {
       const result = isDeposit
         ? await createDeposit(user.id, numAmount, method, note)
-        : await createWithdraw(user.id, numAmount, method, note)
+        : await createWithdraw(user.id, numAmount, method, note, recipientDetails)
 
       setSubmittedTxId(result.deposit.txId)
       onSuccess?.(result.newBalance)
@@ -130,6 +190,13 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
   const gradientBtn  = isDeposit
     ? 'linear-gradient(135deg, #16a34a, #4ade80)'
     : 'linear-gradient(135deg, #7c3aed, #a78bfa)'
+
+  // Shared input style
+  const inputStyle = {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: '#fff',
+  }
 
   return (
     <AnimatePresence>
@@ -151,16 +218,19 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
           style={{
             background: 'linear-gradient(145deg, #130d35 0%, #1a1040 100%)',
             border: '1px solid rgba(255,255,255,0.1)',
+            maxHeight: '92vh',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Top accent line */}
           <div
-            className="absolute top-0 left-0 right-0 h-0.5"
+            className="absolute top-0 left-0 right-0 h-0.5 flex-shrink-0"
             style={{ background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }}
           />
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
             <div className="flex items-center gap-3">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -189,11 +259,52 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
             </button>
           </div>
 
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
+          <div className="flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
 
-          <div className="px-6 py-5">
+          {/* Step indicator — only for withdraw (3 steps) */}
+          {!isDeposit && step !== 'success' && (
+            <div className="flex items-center gap-2 px-6 pt-4 flex-shrink-0">
+              {(['form', 'recipient', 'confirm'] as const).map((s, i) => {
+                const labels = ['Amount', 'Recipient', 'Confirm']
+                const idx = ['form', 'recipient', 'confirm'].indexOf(step)
+                const done = i < idx
+                const active = s === step
+                return (
+                  <div key={s} className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{
+                          background: done ? accentBg : active ? accentBg : 'rgba(255,255,255,0.06)',
+                          border: `1px solid ${done || active ? accentBorder : 'rgba(255,255,255,0.1)'}`,
+                          color: done || active ? accentColor : '#4b5563',
+                        }}
+                      >
+                        {done ? <i className="fas fa-check" style={{ fontSize: '8px' }} /> : i + 1}
+                      </div>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: active ? accentColor : done ? '#6b7280' : '#4b5563' }}
+                      >
+                        {labels[i]}
+                      </span>
+                    </div>
+                    {i < 2 && (
+                      <div
+                        className="flex-1 h-px"
+                        style={{ background: done ? accentBorder : 'rgba(255,255,255,0.08)' }}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
-            {/* ── STEP: FORM ── */}
+          {/* Scrollable body */}
+          <div className="px-6 py-5 overflow-y-auto flex-1">
+
+            {/* ── STEP: FORM (amount + method) ── */}
             {step === 'form' && (
               <div className="space-y-5">
                 {/* Balance pill */}
@@ -233,7 +344,6 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                       }}
                     />
                   </div>
-                  {/* Min / Max range hint */}
                   <div className="flex items-center justify-between mt-1.5">
                     <span className="text-xs" style={{ color: '#6b7280' }}>
                       Min: <span style={{ color: '#9ca3af' }}>{fmt(minAmount)}</span>
@@ -270,7 +380,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                 {/* Method */}
                 <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: '#9ca3af' }}>
-                    Payment Method
+                    {isDeposit ? 'Payment Method' : 'Withdrawal Method'}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {METHODS.map(m => (
@@ -291,21 +401,23 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                   </div>
                 </div>
 
-                {/* Note */}
-                <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: '#9ca3af' }}>
-                    Note <span style={{ color: '#4b5563' }}>(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Add a note…"
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    maxLength={80}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                  />
-                </div>
+                {/* Note — deposit only (withdraw note is auto-built from recipient fields) */}
+                {isDeposit && (
+                  <div>
+                    <label className="block text-xs font-medium mb-2" style={{ color: '#9ca3af' }}>
+                      Note <span style={{ color: '#4b5563' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Add a note…"
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      maxLength={80}
+                      className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    />
+                  </div>
+                )}
 
                 {error && (
                   <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}>
@@ -314,7 +426,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                 )}
 
                 <button
-                  onClick={() => setStep('confirm')}
+                  onClick={handleFormContinue}
                   disabled={!canProceed}
                   className="w-full py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
@@ -324,6 +436,105 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                 >
                   Continue →
                 </button>
+              </div>
+            )}
+
+            {/* ── STEP: RECIPIENT DETAILS (withdraw only) ── */}
+            {step === 'recipient' && (
+              <div className="space-y-5">
+                {/* Method badge */}
+                <div
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                  style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
+                >
+                  <i
+                    className={`${METHODS.find(m => m.value === method)?.icon ?? 'fas fa-university'} text-sm`}
+                    style={{ color: accentColor }}
+                  />
+                  <div>
+                    <p className="text-xs font-bold" style={{ color: accentColor }}>{method}</p>
+                    <p className="text-xs" style={{ color: '#6b7280' }}>
+                      Enter the details where you want to receive your funds
+                    </p>
+                  </div>
+                </div>
+
+                {/* Dynamic fields */}
+                <div className="space-y-3">
+                  {currentFields.map(field => (
+                    <div key={field.key}>
+                      <label className="block text-xs font-medium mb-1.5" style={{ color: '#9ca3af' }}>
+                        {field.label}
+                        <span className="ml-1" style={{ color: '#f87171' }}>*</span>
+                      </label>
+                      <input
+                        type={field.type ?? 'text'}
+                        placeholder={field.placeholder}
+                        value={recipientDetails[field.key] ?? ''}
+                        onChange={e =>
+                          setRecipientDetails(prev => ({ ...prev, [field.key]: e.target.value }))
+                        }
+                        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                        style={{
+                          ...inputStyle,
+                          border: `1px solid ${
+                            recipientDetails[field.key]?.trim()
+                              ? accentBorder
+                              : 'rgba(255,255,255,0.1)'
+                          }`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Optional note */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#9ca3af' }}>
+                    Additional Note <span style={{ color: '#4b5563' }}>(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Any extra instructions for the transfer…"
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    maxLength={120}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  />
+                </div>
+
+                {/* Privacy note */}
+                <div
+                  className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                  style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}
+                >
+                  <i className="fas fa-lock text-xs mt-0.5 flex-shrink-0" style={{ color: '#fbbf24' }} />
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>
+                    Your banking details are encrypted and only used to process this withdrawal.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep('form')}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/10"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => setStep('confirm')}
+                    disabled={!recipientComplete}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      background: recipientComplete ? gradientBtn : 'rgba(255,255,255,0.08)',
+                      color: recipientComplete ? '#fff' : '#6b7280',
+                    }}
+                  >
+                    Review →
+                  </button>
+                </div>
               </div>
             )}
 
@@ -337,27 +548,71 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                   <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#6b7280' }}>
                     Review Transaction
                   </p>
+
+                  {/* Core details */}
                   {[
                     { label: 'Type',   value: isDeposit ? 'Deposit' : 'Withdrawal' },
                     { label: 'Amount', value: fmt(numAmount) },
                     { label: 'Method', value: method },
-                    { label: 'Note',   value: note || '—' },
                   ].map(row => (
                     <div key={row.label} className="flex items-center justify-between">
                       <span className="text-xs" style={{ color: '#9ca3af' }}>{row.label}</span>
                       <span className="text-sm font-semibold text-white">{row.value}</span>
                     </div>
                   ))}
-                  {/* Pending notice on confirm */}
+
+                  {/* Recipient details summary (withdraw only) */}
+                  {!isDeposit && currentFields.length > 0 && (
+                    <>
+                      <div
+                        className="pt-2 mt-1"
+                        style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+                      >
+                        <p className="text-xs font-semibold mb-2" style={{ color: accentColor }}>
+                          <i className="fas fa-paper-plane mr-1.5" />
+                          Recipient Details
+                        </p>
+                        <div className="space-y-2">
+                          {currentFields.map(field => {
+                            const val = recipientDetails[field.key]
+                            if (!val?.trim()) return null
+                            return (
+                              <div key={field.key} className="flex items-start justify-between gap-3">
+                                <span className="text-xs flex-shrink-0" style={{ color: '#6b7280' }}>
+                                  {field.label}
+                                </span>
+                                <span
+                                  className="text-xs font-mono font-semibold text-right break-all"
+                                  style={{ color: '#e5e7eb' }}
+                                >
+                                  {val}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Note */}
+                  {note && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs" style={{ color: '#9ca3af' }}>Note</span>
+                      <span className="text-xs font-semibold text-white">{note}</span>
+                    </div>
+                  )}
+
+                  {/* Pending notice */}
                   <div
-                    className="flex items-start gap-2 pt-2 mt-2"
+                    className="flex items-start gap-2 pt-2 mt-1"
                     style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
                   >
                     <i className="fas fa-info-circle text-xs mt-0.5 flex-shrink-0" style={{ color: '#fbbf24' }} />
                     <p className="text-xs" style={{ color: '#9ca3af' }}>
                       {isDeposit
                         ? 'Your request will be reviewed by our team. Balance is credited after approval.'
-                        : 'Your request will be reviewed. Funds are sent after admin approval.'}
+                        : 'Your funds will be sent to the account above after admin approval. Processing: 1–3 business days.'}
                     </p>
                   </div>
                 </div>
@@ -370,7 +625,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setStep('form')}
+                    onClick={() => setStep(isDeposit ? 'form' : 'recipient')}
                     className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/10"
                     style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
@@ -427,61 +682,90 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                 </div>
 
                 {/* Deposit: show platform account to send TO */}
-                {isDeposit && platformAccount && (
-                  <div
-                    className="w-full rounded-xl p-4 space-y-2 text-left"
-                    style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}
-                  >
-                    <p className="text-xs font-bold mb-2" style={{ color: '#4ade80' }}>
-                      <i className="fas fa-university mr-1.5" />
-                      Transfer funds to this account
-                    </p>
-                    {[
-                      ['Bank',         platformAccount.bankName],
-                      ['Account Name', platformAccount.accountName],
-                      ['Account No.',  platformAccount.accountNumber],
-                      ['Routing No.',  platformAccount.routingNumber],
-                      ['Reference',    submittedTxId],
-                    ].map(([label, value]) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: '#9ca3af' }}>{label}</span>
-                        <span
-                          className="text-xs font-mono font-semibold"
-                          style={{ color: label === 'Reference' ? '#fbbf24' : '#fff' }}
-                        >
-                          {value}
-                        </span>
+                {isDeposit && (
+                  platformAccount ? (
+                    <div
+                      className="w-full rounded-xl p-4 space-y-2 text-left"
+                      style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}
+                    >
+                      <p className="text-xs font-bold mb-2" style={{ color: '#4ade80' }}>
+                        <i className="fas fa-university mr-1.5" />
+                        Transfer funds to this account
+                      </p>
+                      {(platformAccount.paymentMethod === 'crypto'
+                        ? [
+                            ['Network',        platformAccount.network],
+                            ['Wallet Address', platformAccount.walletAddress],
+                            ['Reference',      submittedTxId],
+                          ]
+                        : [
+                            ['Bank',         platformAccount.bankName],
+                            ['Account Name', platformAccount.accountName],
+                            ['Account No.',  platformAccount.accountNumber],
+                            ['Routing No.',  platformAccount.routingNumber],
+                            ['Reference',    submittedTxId],
+                          ]
+                      ).map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between">
+                          <span className="text-xs" style={{ color: '#9ca3af' }}>{label}</span>
+                          <span
+                            className="text-xs font-mono font-semibold"
+                            style={{ color: label === 'Reference' ? '#fbbf24' : '#fff' }}
+                          >
+                            {value}
+                          </span>
+                        </div>
+                      ))}
+                      <p className="text-xs pt-1" style={{ color: '#6b7280' }}>
+                        Use the Reference ID in your transfer description so we can match your payment.
+                      </p>
+                    </div>
+                  ) : (
+                    <div
+                      className="w-full rounded-xl p-4 flex items-start gap-3 text-left"
+                      style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}
+                    >
+                      <i className="fas fa-exclamation-triangle text-sm mt-0.5 flex-shrink-0" style={{ color: '#fbbf24' }} />
+                      <div>
+                        <p className="text-xs font-semibold" style={{ color: '#fbbf24' }}>Payment instructions unavailable</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                          No deposit account is currently configured. Please contact support with your Reference ID and we will provide payment details.
+                        </p>
                       </div>
-                    ))}
-                    <p className="text-xs pt-1" style={{ color: '#6b7280' }}>
-                      Use the Reference ID in your transfer description so we can match your payment.
-                    </p>
-                  </div>
+                    </div>
+                  )
                 )}
 
-                {/* Withdrawal: show what happens next */}
+                {/* Withdrawal: confirm where funds are going */}
                 {!isDeposit && (
                   <div
-                    className="w-full rounded-xl p-4 text-left"
+                    className="w-full rounded-xl p-4 text-left space-y-2"
                     style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.2)' }}
                   >
-                    <p className="text-xs font-bold mb-2" style={{ color: '#a78bfa' }}>
-                      <i className="fas fa-info-circle mr-1.5" />
-                      What happens next
+                    <p className="text-xs font-bold" style={{ color: '#a78bfa' }}>
+                      <i className="fas fa-paper-plane mr-1.5" />
+                      Funds will be sent to
                     </p>
-                    <ul className="space-y-1.5">
-                      {[
-                        'Our team will review your withdrawal request',
-                        'Funds will be sent to your registered bank account',
-                        'You will be notified once processed',
-                        'Processing time: 1–3 business days',
-                      ].map(item => (
-                        <li key={item} className="flex items-start gap-2">
-                          <i className="fas fa-check text-xs mt-0.5 flex-shrink-0" style={{ color: '#a78bfa' }} />
-                          <span className="text-xs" style={{ color: '#9ca3af' }}>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {currentFields.map(field => {
+                      const val = recipientDetails[field.key]
+                      if (!val?.trim()) return null
+                      return (
+                        <div key={field.key} className="flex items-start justify-between gap-3">
+                          <span className="text-xs flex-shrink-0" style={{ color: '#6b7280' }}>
+                            {field.label}
+                          </span>
+                          <span
+                            className="text-xs font-mono font-semibold text-right break-all"
+                            style={{ color: '#e5e7eb' }}
+                          >
+                            {val}
+                          </span>
+                        </div>
+                      )
+                    })}
+                    <p className="text-xs pt-1" style={{ color: '#6b7280' }}>
+                      Processing time: 1–3 business days. You will be notified once processed.
+                    </p>
                   </div>
                 )}
 
@@ -494,6 +778,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                 </button>
               </div>
             )}
+
           </div>
         </motion.div>
       </motion.div>

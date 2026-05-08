@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTransactions } from '../../hooks/useTransactions'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
@@ -87,32 +86,13 @@ function DonutChart() {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function Wallet() {
-  const { isAuthenticated, user } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const { transactions } = useTransactions(user?.id)
 
   const [activeCard, setActiveCard] = useState(2) // dark card active by default
   const [activeTab, setActiveTab] = useState<'Week' | 'Month' | 'Year'>('Week')
   const [activeActivity, setActiveActivity] = useState<'Week' | 'Month' | 'Year'>('Week')
   const [cardTheme, setCardTheme] = useState(2)
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login', { replace: true })
-    }
-  }, [isAuthenticated, navigate])
-
-  // Show loading or redirect message while checking auth
-  if (!isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center h-screen" style={{ backgroundColor: '#0d0824' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#c9a84c' }} />
-          <p className="text-gray-400">Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
 
   const candleW = (CHART_W - PAD_L - PAD_R) / CANDLES.length
   const candleBodyW = Math.max(candleW * 0.5, 6)

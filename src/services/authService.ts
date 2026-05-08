@@ -69,7 +69,7 @@ interface MeUser {
   accountStatus?: string
 }
 
-export async function fetchUser(_id?: number): Promise<User | null> {
+export async function fetchUser(): Promise<User | null> {
   try {
     const data = await get<MeUser>('/auth/me')
     if (!data?.id) return null
@@ -95,36 +95,80 @@ export async function fetchUser(_id?: number): Promise<User | null> {
 }
 
 export async function login(email: string, password: string): Promise<User | null> {
+  let response: LoginResponse
   try {
-    const response = await post<LoginResponse>('/auth/login', { email, password })
-    if (!response.success || !response.token) return null
+    response = await post<LoginResponse>('/auth/login', { email, password })
+  } catch (err) {
+    // Check the status code attached by unwrap() — never log or expose the path
+    const status = (err as { status?: number }).status
+    if (status === 429) {
+      throw new Error('Too many login attempts. Please wait a few minutes and try again.')
+    }
+    if (status === 401) {
+      throw new Error('Invalid email or password.')
+    }
+    // Network-level failure (ERR_EMPTY_RESPONSE, no internet, CORS, etc.)
+    throw new Error('Unable to reach the server. Please check your connection and try again.')
+  }
 
-    localStorage.setItem('cs_token', response.token)
-    return await fetchUser(response.user.id)
+  if (!response.success || !response.token) {
+    throw new Error('Login failed. Please try again.')
+  }
+
+  localStorage.setItem('cs_token', response.token)
+  return await fetchUser()
+}
+
+/**
+ * Refresh the current JWT token before it expires.
+ * Returns the new token string, or null if the refresh failed.
+ */
+export async function refreshToken(): Promise<string | null> {
+  try {
+    const response = await post<{ success: boolean; token: string }>('/auth/refresh', {})
+    if (response?.token) {
+      localStorage.setItem('cs_token', response.token)
+      return response.token
+    }
+    return null
   } catch {
     return null
   }
 }
 
-export async function register(
-  firstName: string,
+export async function register(  firstName: string,
   lastName: string,
   email: string,
   password: string,
 ): Promise<User | null> {
+  let response: RegisterResponse
   try {
-    const response = await post<RegisterResponse>('/auth/register', {
+    response = await post<RegisterResponse>('/auth/register', {
       firstName,
       lastName,
       email,
       password,
     })
+  } catch (err) {
+    const status = (err as { status?: number }).status
+    const message = err instanceof Error ? err.message : ''
 
-    if (!response.success || !response.token) return null
-
-    localStorage.setItem('cs_token', response.token)
-    return await fetchUser(response.userId)
-  } catch {
-    return null
+    if (status === 429) {
+      throw new Error('Too many registration attempts. Please wait a few minutes and try again.')
+    }
+    if (status === 409 || message.toLowerCase().includes('already')) {
+      throw new Error('An account with this email already exists.')
+    }
+    if (status === 403) {
+      throw new Error('Registration is currently disabled.')
+    }
+    throw new Error('Unable to reach the server. Please check your connection and try again.')
   }
+
+  if (!response.success || !response.token) {
+    throw new Error('Registration failed. Please try again.')
+  }
+
+  localStorage.setItem('cs_token', response.token)
+  return await fetchUser()
 }

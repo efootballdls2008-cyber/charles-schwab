@@ -6,7 +6,7 @@ import TickerTape from './TickerTape'
 export default function Layout() {
   return (
     <div
-      className="antialiased text-gray-200 font-sans min-h-screen flex flex-col"
+      className="antialiased text-gray-200 font-sans min-h-screen flex flex-col overflow-x-hidden"
       style={{ backgroundColor: '#110b2d' }}
     >
       {/* Accessibility skip link */}
@@ -20,7 +20,7 @@ export default function Layout() {
       <Header />
 
       {/* pb-12 reserves space so the sticky ticker tape never overlaps page content */}
-      <main id="main-content" className="flex-grow pb-12">
+      <main id="main-content" className="flex-grow pb-12 overflow-x-hidden">
         <Outlet />
       </main>
 
