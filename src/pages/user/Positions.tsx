@@ -337,7 +337,6 @@ function EmptyState() {
 
 export default function Positions() {
   const { user } = useAuth()
-  const navigate = useNavigate()
 
   const [positions, setPositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(true)
