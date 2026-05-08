@@ -1,7 +1,12 @@
 import { Routes, Route } from 'react-router-dom'
+import { ToastProvider } from './context/ToastContext'
 import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
 import Layout from './components/layout/Layout'
+import PrivateRoute from './components/auth/PrivateRoute'
+import NotificationToast from './components/ui/NotificationToast'
+import NotificationSound from './components/ui/NotificationSound'
+import { useAuth } from './hooks/useAuth'
 
 // Pages
 import Home from './pages/Home'
@@ -42,11 +47,12 @@ import NotificationsPage from './pages/user/Notifications'
 import Positions from './pages/user/Positions'
 import KYCPage from './pages/user/KYC'
 
-export default function App() {
+function AppContent() {
+  const { user } = useAuth()
+
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <Routes>
+    <>
+      <Routes>
         {/* Public routes with shared Header/Footer layout */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
@@ -74,21 +80,48 @@ export default function App() {
           <Route path="/regulation" element={<Regulation />} />
         </Route>
 
-        {/* Dashboard routes — completely separate from public Layout */}
-        <Route path="/user/dashboard" element={<Dashboard />} />
-        <Route path="/user/wallet" element={<Wallet />} />
-        <Route path="/user/account" element={<Account />} />
-        <Route path="/user/settings" element={<Settings />} />
-        <Route path="/user/history" element={<History />} />
-        <Route path="/user/transactions" element={<Transactions />} />
-        <Route path="/user/trade" element={<TradePage />} />
-        <Route path="/user/crypto" element={<CryptoPage />} />
-        <Route path="/user/exchange" element={<ExchangePage />} />
-        <Route path="/user/notifications" element={<NotificationsPage />} />
-        <Route path="/user/positions" element={<Positions />} />
-        <Route path="/user/kyc" element={<KYCPage />} />
+        {/* Dashboard routes — protected, completely separate from public Layout */}
+        <Route path="/user/dashboard"     element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/user/wallet"        element={<PrivateRoute><Wallet /></PrivateRoute>} />
+        <Route path="/user/account"       element={<PrivateRoute><Account /></PrivateRoute>} />
+        <Route path="/user/settings"      element={<PrivateRoute><Settings /></PrivateRoute>} />
+        <Route path="/user/history"       element={<PrivateRoute><History /></PrivateRoute>} />
+        <Route path="/user/transactions"  element={<PrivateRoute><Transactions /></PrivateRoute>} />
+        <Route path="/user/trade"         element={<PrivateRoute><TradePage /></PrivateRoute>} />
+        <Route path="/user/crypto"        element={<PrivateRoute><CryptoPage /></PrivateRoute>} />
+        <Route path="/user/exchange"      element={<PrivateRoute><ExchangePage /></PrivateRoute>} />
+        <Route path="/user/notifications" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
+        <Route path="/user/positions"     element={<PrivateRoute><Positions /></PrivateRoute>} />
+        <Route path="/user/kyc"           element={<PrivateRoute><KYCPage /></PrivateRoute>} />
       </Routes>
-      </SocketProvider>
-    </AuthProvider>
+
+      {/* Global notification toasts and sounds for authenticated users */}
+      {user && (
+        <>
+          <NotificationToast 
+            userId={user.id} 
+            position="top-right"
+            maxVisible={3}
+          />
+          <NotificationSound 
+            userId={user.id}
+            enabled={true}
+            volume={0.3}
+          />
+        </>
+      )}
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <AppContent />
+        </SocketProvider>
+      </AuthProvider>
+    </ToastProvider>
   )
 }

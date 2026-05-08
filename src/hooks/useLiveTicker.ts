@@ -10,13 +10,13 @@ export interface TickerData {
   volume24h: number     // in USDT
 }
 
-const BINANCE_WS = 'wss://stream.binance.com:9443/ws'
-const BINANCE_REST = 'https://api.binance.com/api/v3/ticker/24hr'
+// Route all market data through our own backend to avoid CORS and geo-restrictions.
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-/** Fetch ticker via REST as a fallback / initial load */
+/** Fetch ticker via the backend proxy */
 async function fetchTickerRest(baseSymbol: string): Promise<TickerData | null> {
   try {
-    const res = await fetch(`${BINANCE_REST}?symbol=${baseSymbol.toUpperCase()}USDT`)
+    const res = await fetch(`${API_BASE}/ticker/${baseSymbol.toUpperCase()}USDT`)
     if (!res.ok) return null
     const d = await res.json() as {
       lastPrice: string; priceChange: string; priceChangePercent: string
@@ -36,102 +36,47 @@ async function fetchTickerRest(baseSymbol: string): Promise<TickerData | null> {
   }
 }
 
+// Poll every 15 seconds — the backend caches Binance responses for 8s,
+// so polling faster than that just wastes requests.
+const POLL_INTERVAL_MS = 15_000
+
 export function useLiveTicker(baseSymbol: string): TickerData | null {
   const [ticker, setTicker] = useState<TickerData | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
   const restIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const wsFailedRef = useRef(false)
+  // Prevent a second in-flight fetch while one is already running
+  const fetchingRef = useRef(false)
 
-  // REST polling fallback
-  const startRestPolling = useCallback((sym: string) => {
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current)
-    // Fetch immediately
-    fetchTickerRest(sym).then((t) => { if (t) setTicker(t) })
-    // Then poll every 5 seconds
-    restIntervalRef.current = setInterval(() => {
-      fetchTickerRest(sym).then((t) => { if (t) setTicker(t) })
-    }, 5000)
+  const fetchOnce = useCallback(async (sym: string) => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
+    try {
+      const t = await fetchTickerRest(sym)
+      if (t) setTicker(t)
+    } finally {
+      fetchingRef.current = false
+    }
   }, [])
-
-  const connect = useCallback((sym: string) => {
-    // Close any existing WS
-    if (wsRef.current) {
-      wsRef.current.onmessage = null
-      wsRef.current.onerror = null
-      wsRef.current.onclose = null
-      wsRef.current.close()
-      wsRef.current = null
-    }
-
-    wsFailedRef.current = false
-    const stream = `${sym.toLowerCase()}usdt@ticker`
-    const ws = new WebSocket(`${BINANCE_WS}/${stream}`)
-    wsRef.current = ws
-
-    // Timeout: if no message in 4s, fall back to REST
-    const timeout = setTimeout(() => {
-      if (!wsFailedRef.current) {
-        wsFailedRef.current = true
-        ws.close()
-        startRestPolling(sym)
-      }
-    }, 4000)
-
-    ws.onmessage = (e) => {
-      clearTimeout(timeout)
-      try {
-        const d = JSON.parse(e.data as string) as {
-          c: string; P: string; p: string; h: string; l: string; q: string
-        }
-        setTicker({
-          symbol: `${sym}/USDT`,
-          price: parseFloat(d.c),
-          changePct24h: parseFloat(d.P),
-          change24h: parseFloat(d.p),
-          high24h: parseFloat(d.h),
-          low24h: parseFloat(d.l),
-          volume24h: parseFloat(d.q),
-        })
-      } catch {
-        // ignore parse errors
-      }
-    }
-
-    ws.onerror = () => {
-      clearTimeout(timeout)
-      if (!wsFailedRef.current) {
-        wsFailedRef.current = true
-        ws.close()
-        startRestPolling(sym)
-      }
-    }
-
-    ws.onclose = () => {
-      clearTimeout(timeout)
-    }
-  }, [startRestPolling])
 
   useEffect(() => {
     setTicker(null)
-    // Always fetch REST immediately for instant data
-    fetchTickerRest(baseSymbol).then((t) => { if (t) setTicker(t) })
-    // Also try WebSocket for live updates
-    connect(baseSymbol)
+
+    // Debounce the initial fetch by 50ms to absorb React StrictMode
+    // double-invoke — the second effect run cancels the first timer.
+    const debounceTimer = setTimeout(() => {
+      void fetchOnce(baseSymbol)
+      restIntervalRef.current = setInterval(() => {
+        void fetchOnce(baseSymbol)
+      }, POLL_INTERVAL_MS)
+    }, 50)
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.onmessage = null
-        wsRef.current.onerror = null
-        wsRef.current.onclose = null
-        wsRef.current.close()
-        wsRef.current = null
-      }
+      clearTimeout(debounceTimer)
       if (restIntervalRef.current) {
         clearInterval(restIntervalRef.current)
         restIntervalRef.current = null
       }
     }
-  }, [baseSymbol, connect])
+  }, [baseSymbol, fetchOnce])
 
   return ticker
 }

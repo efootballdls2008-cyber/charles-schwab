@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
@@ -332,8 +332,7 @@ function TradeAnalysisPanel({ trade, onClose }: { trade: TradeAnalysisState; onC
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function TradePage() {
-  const { isAuthenticated, user } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const location = useLocation()
 
   const [tab, setTab] = useState<TabKey>('crypto')
@@ -346,10 +345,6 @@ export default function TradePage() {
   const [analysisState, setAnalysisState] = useState<TradeAnalysisState | null>(
     (location.state as TradeAnalysisState | null) ?? null
   )
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
 
   const loadHoldings = useCallback(async () => {
     if (!user?.id) return
@@ -365,8 +360,6 @@ export default function TradePage() {
   }, [user?.id])
 
   useEffect(() => { loadHoldings() }, [loadHoldings])
-
-  if (!isAuthenticated) return null
 
   const activeRows = tab === 'crypto' ? CRYPTO_ROWS : STOCK_ROWS
 

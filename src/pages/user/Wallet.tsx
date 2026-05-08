@@ -87,7 +87,7 @@ function DonutChart() {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function Wallet() {
-  const { isAuthenticated, user } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const { transactions } = useTransactions(user?.id)
 
@@ -97,9 +97,6 @@ export default function Wallet() {
   const [cardTheme, setCardTheme] = useState(2)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login', { replace: true })
-    }
   }, [isAuthenticated, navigate])
 
   // Show loading or redirect message while checking auth

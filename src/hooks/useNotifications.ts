@@ -4,7 +4,7 @@
  *
  * Notification types:
  *   deposit | withdrawal | trade | order | bot_open | bot_close |
- *   take_profit | stop_loss | system | security | price_alert
+ *   take_profit | stop_loss | system | security | price_alert | bot_activity | profit_loss
  */
 import { useState, useEffect, useCallback } from 'react'
 import { get, patch, del } from '../api/client'
@@ -25,11 +25,28 @@ export type NotificationType =
   | 'bot_close'
   | 'take_profit'
   | 'stop_loss'
+  | 'bot_activity'
+  | 'profit_loss'
+
+export type NotificationCategory =
+  | 'trading'
+  | 'wallet'
+  | 'bot_activity'
+  | 'profit_loss'
+  | 'system_alerts'
+
+export type NotificationPriority =
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'urgent'
 
 export interface Notification {
   id: number
   userId: number
   type: NotificationType
+  category: NotificationCategory
+  priority: NotificationPriority
   title: string
   message: string
   /** ISO timestamp */
@@ -37,6 +54,7 @@ export interface Notification {
   read: boolean
   relatedId?: string | null
   relatedType?: string | null
+  metadata?: any
 }
 
 // ── Raw shape from backend ────────────────────────────────────────────────────
@@ -45,12 +63,16 @@ interface RawNotification {
   id: number
   userId: number
   type: string
+  category: string
+  priority: string
   title: string
   message: string
   isRead: boolean
   relatedId?: string | null
   relatedType?: string | null
+  metadata?: any
   createdAt: string
+  updatedAt: string
 }
 
 function rawToNotification(r: RawNotification): Notification {
@@ -58,12 +80,15 @@ function rawToNotification(r: RawNotification): Notification {
     id: r.id,
     userId: r.userId,
     type: (r.type as NotificationType) || 'system',
+    category: (r.category as NotificationCategory) || 'system_alerts',
+    priority: (r.priority as NotificationPriority) || 'medium',
     title: r.title,
     message: r.message,
     timestamp: r.createdAt,
     read: !!r.isRead,
     relatedId: r.relatedId ?? null,
     relatedType: r.relatedType ?? null,
+    metadata: r.metadata || null,
   }
 }
 

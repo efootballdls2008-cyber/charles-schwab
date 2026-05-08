@@ -43,7 +43,7 @@ const marketAssets = [
 // Animated background with grid and particles
 function TradingBackground() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none w-full" aria-hidden="true">
       {/* Animated gradient orbs */}
       <motion.div
         className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20 blur-3xl"
@@ -72,7 +72,7 @@ function TradingBackground() {
         }}
       />
       <motion.div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10 blur-3xl"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10 blur-3xl max-w-full"
         style={{ background: 'radial-gradient(circle, #6b46c1, transparent)' }}
         animate={{
           scale: [1, 1.1, 1],
@@ -87,7 +87,7 @@ function TradingBackground() {
 
       {/* Grid pattern */}
       <div 
-        className="absolute inset-0 opacity-[0.03]"
+        className="absolute inset-0 opacity-[0.03] w-full"
         style={{
           backgroundImage: `
             linear-gradient(rgba(162,133,57,0.3) 1px, transparent 1px),
@@ -97,8 +97,8 @@ function TradingBackground() {
         }}
       />
 
-      {/* Floating particles */}
-      {[...Array(20)].map((_, i) => (
+      {/* Floating particles - reduced on mobile */}
+      {[...Array(window.innerWidth < 768 ? 10 : 20)].map((_, i) => (
         <motion.div
           key={i}
           className="absolute w-1 h-1 rounded-full"
@@ -152,21 +152,21 @@ function LivePriceTicker() {
   }, [])
 
   return (
-    <div className="relative overflow-hidden py-3 px-4 rounded-xl border border-white/5" style={{ background: 'rgba(17,11,45,0.6)', backdropFilter: 'blur(10px)' }}>
-      <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
+    <div className="relative overflow-hidden py-3 px-4 rounded-xl border border-white/5 w-full" style={{ background: 'rgba(17,11,45,0.6)', backdropFilter: 'blur(10px)' }}>
+      <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide w-full">
         {prices.map((asset, i) => (
           <motion.div
             key={asset.symbol}
-            className="flex items-center gap-3 min-w-fit"
+            className="flex items-center gap-3 min-w-fit flex-shrink-0"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.1 }}
           >
             <div className="flex flex-col">
-              <span className="text-xs text-gray-400 font-medium">{asset.symbol}</span>
+              <span className="text-xs text-gray-400 font-medium whitespace-nowrap">{asset.symbol}</span>
               <div className="flex items-center gap-2">
                 <motion.span
-                  className="text-sm font-bold text-white"
+                  className="text-sm font-bold text-white whitespace-nowrap"
                   key={asset.currentPrice}
                   initial={{ scale: 1.1, color: asset.isUp ? '#10b981' : '#ef4444' }}
                   animate={{ scale: 1, color: '#ffffff' }}
@@ -177,14 +177,14 @@ function LivePriceTicker() {
                     : asset.currentPrice.toFixed(4)}
                 </motion.span>
                 <span
-                  className={`text-xs font-semibold ${asset.change > 0 ? 'text-green-400' : 'text-red-400'}`}
+                  className={`text-xs font-semibold whitespace-nowrap ${asset.change > 0 ? 'text-green-400' : 'text-red-400'}`}
                 >
                   {asset.change > 0 ? '↑' : '↓'} {Math.abs(asset.change)}%
                 </span>
               </div>
             </div>
             {i < prices.length - 1 && (
-              <div className="w-px h-8 bg-white/10" />
+              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
             )}
           </motion.div>
         ))}
@@ -339,19 +339,19 @@ function HeroHeadline() {
 function HeroStatsRow() {
   return (
     <motion.div
-      className="flex flex-wrap justify-center gap-8 py-4"
+      className="flex flex-wrap justify-center gap-4 sm:gap-8 py-4 px-4"
       variants={staggerContainer}
       initial="initial"
       animate="animate"
     >
       {heroStats.map((stat, i) => (
-        <motion.div key={stat.label} className="flex items-center gap-8" variants={fadeUp(0.4 + i * 0.1)}>
+        <motion.div key={stat.label} className="flex items-center gap-4 sm:gap-8" variants={fadeUp(0.4 + i * 0.1)}>
           <div className="text-center">
-            <div className="text-2xl font-bold" style={{ color: '#a28539' }}>{stat.value}</div>
-            <div className="text-sm text-gray-400">{stat.label}</div>
+            <div className="text-xl sm:text-2xl font-bold" style={{ color: '#a28539' }}>{stat.value}</div>
+            <div className="text-xs sm:text-sm text-gray-400 whitespace-nowrap">{stat.label}</div>
           </div>
           {i < heroStats.length - 1 && (
-            <div className="w-px h-12" style={{ backgroundColor: 'rgba(162,133,57,0.3)' }} />
+            <div className="w-px h-8 sm:h-12 hidden sm:block" style={{ backgroundColor: 'rgba(162,133,57,0.3)' }} />
           )}
         </motion.div>
       ))}
@@ -378,7 +378,7 @@ function TrustBar() {
 export default function HeroSection() {
   return (
     <section
-      className="relative overflow-hidden"
+      className="relative overflow-hidden w-full"
       style={{
         background: 'linear-gradient(135deg, #0a0520 0%, #110b2d 25%, #1a0f3d 50%, #110b2d 75%, #0d0824 100%)',
         minHeight: '90vh',
@@ -387,9 +387,9 @@ export default function HeroSection() {
       <TradingBackground />
       <MiniChart />
 
-      <div className="relative z-10 px-4 py-24 mx-auto max-w-6xl sm:px-6 lg:px-8">
+      <div className="relative z-10 px-4 py-24 mx-auto max-w-6xl sm:px-6 lg:px-8 w-full">
         {/* Main content */}
-        <div className="text-center space-y-8 max-w-4xl mx-auto">
+        <div className="text-center space-y-8 max-w-4xl mx-auto w-full">
           <motion.div {...fadeUp(0)}>
             <HeroBadge />
           </motion.div>
@@ -399,7 +399,7 @@ export default function HeroSection() {
           </motion.div>
 
           <motion.p
-            className="max-w-2xl mx-auto text-xl text-gray-300 leading-relaxed"
+            className="max-w-2xl mx-auto text-xl text-gray-300 leading-relaxed px-4"
             {...fadeUp(0.25)}
           >
             Access global markets — Stocks, Forex, Gold, Oil, Indices and Crypto — with ultra-fast
@@ -408,7 +408,7 @@ export default function HeroSection() {
 
           <HeroStatsRow />
 
-          <motion.div className="flex flex-wrap justify-center gap-4 mt-4" {...fadeUp(0.55)}>
+          <motion.div className="flex flex-wrap justify-center gap-4 mt-4 px-4" {...fadeUp(0.55)}>
             <Button variant="ghost-gold" to="/register" className="text-lg">
               Start Trading Now <Icon name="fas fa-arrow-right ml-2" />
             </Button>
@@ -421,7 +421,7 @@ export default function HeroSection() {
 
         {/* Live price ticker at bottom */}
         <motion.div
-          className="mt-16 max-w-5xl mx-auto"
+          className="mt-16 max-w-5xl mx-auto w-full"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.9, duration: 0.7 }}

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
 import DashboardHeader from '../../components/dashboard/DashboardHeader'
@@ -41,8 +40,7 @@ function BankField({ label, value, onChange, placeholder }: {
 }
 
 export default function Settings() {
-  const { isAuthenticated, user, updateUser } = useAuth()
-  const navigate = useNavigate()
+  const { user, updateUser } = useAuth()
   const [activeTab, setActiveTab] = useState<SettingsTab>('security')
 
   // ── Security state ──
@@ -71,10 +69,6 @@ export default function Settings() {
   const [bankingSaving, setBankingSaving] = useState(false)
   const [bankingToast, setBankingToast] = useState<'saved' | 'error' | null>(null)
 
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
-
   // Sync banking fields when user object loads
   useEffect(() => {
     if (!user) return
@@ -90,8 +84,6 @@ export default function Settings() {
     setWithdrawAccountType(user.withdrawAccountType ?? '')
     setWithdrawSwiftCode(user.withdrawSwiftCode ?? '')
   }, [user])
-
-  if (!isAuthenticated) return null
 
   async function handleSaveBanking() {
     if (!user?.id) return

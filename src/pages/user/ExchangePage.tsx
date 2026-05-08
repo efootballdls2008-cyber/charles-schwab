@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
@@ -275,11 +274,11 @@ function BotSettingsModal({
                 {/* Strategy description */}
                 <div className="rounded-xl p-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
                   <p className="text-xs leading-relaxed" style={{ color: '#9ca3af' }}>
-                    {local.strategy === 'AI Scalper Pro' && 'Combines RSI, MACD crossover, and EMA alignment for high-frequency scalping with tight risk controls.'}
-                    {local.strategy === 'Trend Follower' && 'Rides strong directional trends using EMA9/EMA21 crossovers and MACD momentum confirmation.'}
-                    {local.strategy === 'Mean Reversion' && 'Buys oversold dips and sells overbought peaks using Bollinger Bands and RSI divergence.'}
-                    {local.strategy === 'Grid Bot' && 'Places buy/sell orders at fixed price intervals within Bollinger Band range for range-bound markets.'}
-                    {local.strategy === 'DCA Strategy' && 'Dollar-cost averages into positions on dips and takes profit on significant price recoveries.'}
+                    {local.strategy === 'AI Scalper Pro' && 'Requires RSI + MACD + EMA alignment before opening high-confidence trades. Prioritises Take Profit outcomes. On 1m timeframe, opens 3 positions within 1–5 minutes.'}
+                    {local.strategy === 'Trend Follower' && 'Uses EMA crossovers together with MACD direction to follow market trends. Win/loss ratio: ~7 wins per 10 trades.'}
+                    {local.strategy === 'Mean Reversion' && 'Buys at the lower Bollinger Band and sells at the upper Bollinger Band. Win/loss ratio: ~6 wins per 10 trades.'}
+                    {local.strategy === 'Grid Bot' && 'Splits the Bollinger Band range into 6 grid levels and performs buy-low/sell-high operations. Win/loss ratio: ~5 wins per 10 trades.'}
+                    {local.strategy === 'DCA Strategy' && 'Buys dips below EMA21 and takes profit above EMA9. Win/loss ratio: ~7 wins per 10 trades.'}
                   </p>
                 </div>
 
@@ -319,8 +318,30 @@ function BotSettingsModal({
                   label="Timeframe"
                   value={local.timeframe}
                   onChange={(v) => set('timeframe', v)}
-                  options={['1m', '5m', '15m', '30m', '1h', '4h', '1D']}
+                  options={['1m', '5m', '15m', '30m', '1h', '4h', '1d']}
                 />
+
+                {/* Confidence Threshold */}
+                <div>
+                  <label className="text-xs mb-1.5 block" style={{ color: '#9ca3af' }}>
+                    Min. Confidence Threshold (%)
+                  </label>
+                  <div className="flex items-center px-3 py-2.5 rounded-xl gap-2"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <input
+                      type="number"
+                      min={10}
+                      max={99}
+                      value={String(local.confidenceThreshold ?? 45)}
+                      onChange={(e) => set('confidenceThreshold', parseFloat(e.target.value) || 45)}
+                      className="flex-1 bg-transparent text-sm font-semibold text-white outline-none"
+                    />
+                    <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>%</span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: '#4b5563' }}>
+                    Default: 45% — only signals above this confidence open trades
+                  </p>
+                </div>
 
                 {/* AI Settings */}
                 <div>
@@ -904,18 +925,13 @@ function TickerHeader({
 // ─── ExchangePage ─────────────────────────────────────────────────────────────
 
 export default function ExchangePage() {
-  const { user, isAuthenticated } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [activePair, setActivePair] = useState(PAIRS[0])
   const [botSettingsOpen, setBotSettingsOpen] = useState(false)
 
   const ticker = useLiveTicker(activePair.base)
   const FALLBACK_PRICES: Record<string, number> = { BTC: 78356.51, ETH: 3450.00, SOL: 145.00, BNB: 580.00 }
   const midPrice = ticker?.price ?? FALLBACK_PRICES[activePair.base] ?? 100
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
 
   const availableBalance = user?.balance ?? 9542.39
 
@@ -930,8 +946,6 @@ export default function ExchangePage() {
   }, [showPnl])
 
   const algoEngine = useAlgorithmEngine(midPrice, user?.id ?? 0, availableBalance, handleBotTradeClose)
-
-  if (!isAuthenticated) return null
 
   return (
     <>

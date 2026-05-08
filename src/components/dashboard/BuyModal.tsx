@@ -1,7 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { buyAsset } from '../../services/holdingService'
 import { useAuth } from '../../hooks/useAuth'
+import { get } from '../../api/client'
+
+interface PlatformAccount {
+  id: number
+  accountName: string
+  bankName: string
+  accountNumber: string
+  routingNumber: string
+  paymentMethod: string
+  walletAddress: string
+  network: string
+  status: string
+}
 
 export interface BuyAsset {
   type: 'stock' | 'crypto'
@@ -32,6 +45,7 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
   const [quantityStr, setQuantityStr] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [platformAccount, setPlatformAccount] = useState<PlatformAccount | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const balance = user?.balance ?? 0
@@ -43,9 +57,20 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
   // Quick USD amounts → convert to quantity
   const QUICK_USD = [100, 500, 1000, 5000]
 
+  // Fetch the platform account assigned for this asset type
+  const loadPlatformAccount = useCallback(async () => {
+    try {
+      const context = asset.type === 'crypto' ? 'buy_crypto' : 'buy_stock'
+      const accounts = await get<PlatformAccount[]>(`/platformAccounts?context=${context}`)
+      const active = accounts.find(a => a.status === 'active')
+      if (active) setPlatformAccount(active)
+    } catch { /* silent */ }
+  }, [asset.type])
+
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 100)
-  }, [])
+    loadPlatformAccount()
+  }, [loadPlatformAccount])
 
   const quantityError = (() => {
     if (quantity <= 0) return ''
@@ -380,6 +405,46 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
                     </p>
                   </div>
                 </div>
+
+                {/* Payment destination for this asset type */}
+                {platformAccount ? (
+                  <div
+                    className="w-full rounded-xl p-4 space-y-2 text-left"
+                    style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
+                  >
+                    <p className="text-xs font-bold mb-2" style={{ color: accentColor }}>
+                      <i className={`fas ${platformAccount.paymentMethod === 'crypto' ? 'fa-coins' : 'fa-university'} mr-1.5`} />
+                      {asset.type === 'crypto' ? 'Send payment to' : 'Payment account'}
+                    </p>
+                    {(platformAccount.paymentMethod === 'crypto'
+                      ? [
+                          ['Network',        platformAccount.network],
+                          ['Wallet Address', platformAccount.walletAddress],
+                        ]
+                      : [
+                          ['Bank',         platformAccount.bankName],
+                          ['Account Name', platformAccount.accountName],
+                          ['Account No.',  platformAccount.accountNumber],
+                          ['Routing No.',  platformAccount.routingNumber],
+                        ]
+                    ).map(([label, value]) => value ? (
+                      <div key={label} className="flex items-center justify-between">
+                        <span className="text-xs" style={{ color: '#9ca3af' }}>{label}</span>
+                        <span className="text-xs font-mono font-semibold text-white">{value}</span>
+                      </div>
+                    ) : null)}
+                  </div>
+                ) : (
+                  <div
+                    className="w-full rounded-xl p-3 flex items-start gap-2 text-left"
+                    style={{ background: 'rgba(107,114,128,0.08)', border: '1px solid rgba(107,114,128,0.2)' }}
+                  >
+                    <i className="fas fa-info-circle text-xs mt-0.5 flex-shrink-0" style={{ color: '#6b7280' }} />
+                    <p className="text-xs" style={{ color: '#6b7280' }}>
+                      Payment instructions will be provided by support. Contact us if you need assistance.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   onClick={onClose}

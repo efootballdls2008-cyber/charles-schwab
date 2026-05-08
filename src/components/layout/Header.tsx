@@ -168,13 +168,13 @@ export default function Header() {
 
   return (
     <header
-      className="relative z-50"
+      className="relative z-50 w-full"
       style={{ backgroundColor: '#0d0824', borderBottom: '1px solid rgba(162,133,57,0.25)' }}
     >
       <GlowLine variant="divider" />
 
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-20 w-full">
 
           {/* Logo */}
           <div className="flex-shrink-0">
@@ -245,10 +245,10 @@ export default function Header() {
         {mobileOpen && (
           <div
             id="mobile-menu"
-            className="md:hidden border-t"
+            className="md:hidden border-t w-full overflow-x-hidden"
             style={{ borderColor: 'rgba(162,133,57,0.2)' }}
           >
-            <div className="py-3 space-y-1">
+            <div className="py-3 space-y-1 w-full">
               {mobileSections.map((section) => (
                 <MobileNavSection
                   key={section.key}
@@ -270,7 +270,7 @@ export default function Header() {
 
               {/* Mobile auth */}
               <div
-                className="pt-3 pb-2 border-t mx-4 mt-2 flex gap-3"
+                className="pt-3 pb-2 border-t mx-4 mt-2 flex gap-3 flex-wrap"
                 style={{ borderColor: 'rgba(162,133,57,0.2)' }}
               >
                 <Button variant="mobile-login" to="/login" onClick={closeMobile}>

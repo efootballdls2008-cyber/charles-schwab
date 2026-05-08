@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import BuyModal, { type BuyAsset } from '../../components/dashboard/BuyModal'
@@ -153,8 +152,6 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── CryptoPage ───────────────────────────────────────────────────────────────
 
 export default function CryptoPage() {
-  const { isAuthenticated } = useAuth()
-  const navigate = useNavigate()
 
   const [tab, setTab] = useState<Tab>('crypto')
   const [search, setSearch] = useState('')
@@ -165,12 +162,6 @@ export default function CryptoPage() {
   const [filterOption, setFilterOption] = useState<FilterOption>('Newest')
   const [sortDropOpen, setSortDropOpen] = useState(false)
   const [buyAsset, setBuyAsset] = useState<BuyAsset | null>(null)
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
-
-  if (!isAuthenticated) return null
 
   // Reset selection when switching tabs
   const handleTabSwitch = (t: Tab) => {
