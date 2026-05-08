@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../../hooks/useAuth'
+import { useMemo, useState } from 'react'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import BuyModal, { type BuyAsset } from '../../components/dashboard/BuyModal'
 
