@@ -63,7 +63,7 @@ const stats = [
 export default function StatsStrip() {
   return (
     <section
-      className="relative z-10 mb-20 overflow-hidden"
+      className="relative z-10 mb-20 overflow-hidden w-full"
       style={{
         background: 'linear-gradient(135deg, #0d0824 0%, #160f35 50%, #0d0824 100%)',
         borderTop: '1px solid rgba(162,133,57,0.3)',
@@ -90,9 +90,9 @@ export default function StatsStrip() {
         }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <motion.ul
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 w-full"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
@@ -105,6 +105,7 @@ export default function StatsStrip() {
                 hidden: { opacity: 0, y: 24 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
               }}
+              className="w-full"
             >
               <StatCard {...stat} />
             </motion.div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export interface LiveCoin {
   id: string
@@ -14,13 +14,17 @@ export interface LiveCoin {
 // CoinGecko free API — stocks aren't available, so we use top crypto + simulate stocks
 const CRYPTO_IDS = 'bitcoin,ethereum,solana,binancecoin,ripple,cardano'
 
-export function useLiveMarket(refreshMs = 30000) {
+export function useLiveMarket(refreshMs = 60_000) {  // default raised to 60s (was 30s)
   const [coins, setCoins] = useState<LiveCoin[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const fetchingRef = useRef(false)
 
   const fetchData = useCallback(async () => {
+    // Prevent concurrent fetches (React StrictMode double-invoke guard)
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     try {
       const res = await fetch(
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${CRYPTO_IDS}&order=market_cap_desc&per_page=6&page=1&sparkline=true&price_change_percentage=24h`,
@@ -34,13 +38,18 @@ export function useLiveMarket(refreshMs = 30000) {
       setError(err instanceof Error ? err.message : 'Market data unavailable')
     } finally {
       setLoading(false)
+      fetchingRef.current = false
     }
   }, [])
 
   useEffect(() => {
-    void fetchData()
+    // Debounce initial fetch to absorb StrictMode double-invoke
+    const debounceTimer = setTimeout(() => void fetchData(), 50)
     const interval = setInterval(() => void fetchData(), refreshMs)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(debounceTimer)
+      clearInterval(interval)
+    }
   }, [fetchData, refreshMs])
 
   return { coins, loading, error, lastUpdated, refetch: fetchData }

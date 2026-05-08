@@ -39,17 +39,21 @@ export default function Login() {
         showToast('Welcome back! Loading your dashboard…', 'success')
         // Show preloader for 2s then navigate
         setPreloading(true)
+        setLoading(false)
         sessionStorage.setItem(PRELOADER_KEY, 'true')
         setTimeout(() => {
           sessionStorage.removeItem(PRELOADER_KEY)
           navigate('/user/dashboard')
         }, 2000)
       } else {
-        showToast('Invalid email or password. Please try again.', 'error')
+        // success=false without throwing means server returned ok but no user
+        showToast('Login failed. Please try again.', 'error')
         setLoading(false)
       }
-    } catch {
-      showToast('Something went wrong. Please try again.', 'error')
+    } catch (err) {
+      // Typed error messages from authService (wrong password, server down, etc.)
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      showToast(message, 'error')
       setLoading(false)
     }
   }
@@ -113,9 +117,8 @@ export default function Login() {
               style={{
                 background: loading
                   ? 'rgba(162,133,57,0.4)'
-                  : 'linear-gradient(135deg, #a28539 0%, #c9a84c 50%, #a28539 100%)',
+                  : 'linear-gradient(135deg, #a28539 0%, #c9a84c 50%, #a28539 100%) 0 0 / 200% 100%',
                 color: '#0d0824',
-                backgroundSize: '200% 100%',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 boxShadow: loading ? 'none' : '0 4px 20px rgba(162,133,57,0.3)',
               }}

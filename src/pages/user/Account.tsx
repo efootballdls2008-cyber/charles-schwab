@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import { get, patch } from '../../api/client'
@@ -39,8 +38,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function Account() {
-  const { isAuthenticated, user, updateUser } = useAuth()
-  const navigate = useNavigate()
+  const { user, updateUser } = useAuth()
   const [activeTab, setActiveTab] = useState<'Profile' | 'Security' | 'Notifications' | 'Billing'>('Profile')
   const { toast, showSuccess, showError, dismiss } = usePnlToast()
 
@@ -70,9 +68,6 @@ export default function Account() {
   const [notifSaving, setNotifSaving] = useState(false)
 
   // ─── Auth guard ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
 
   // ─── Seed profile from user context ───────────────────────────────────────
   useEffect(() => {
@@ -186,8 +181,6 @@ export default function Account() {
     }
   }
 
-  if (!isAuthenticated) return null
-
   // ─── Shared input style ────────────────────────────────────────────────────
   const inputClass = 'w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none transition-all'
   const inputStyle = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }
@@ -250,7 +243,7 @@ export default function Account() {
                 <h3 className="text-base font-semibold text-white">
                   {user ? `${user.firstName} ${user.lastName}` : 'Jonathan Smith'}
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">{user?.role ?? 'Admin'}</p>
+                <p className="text-sm text-gray-500 mt-1">{user?.role ?? 'Member'}</p>
                 <p className="text-xs text-gray-600 mt-1">{user?.email ?? 'demo@schwab.com'}</p>
 
                 <button

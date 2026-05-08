@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
@@ -216,8 +215,7 @@ const PAGE_SIZE = 12
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Transactions() {
-  const { isAuthenticated, user } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
 
   const [allTx, setAllTx] = useState<UnifiedTx[]>([])
   const [loading, setLoading] = useState(true)
@@ -227,10 +225,6 @@ export default function Transactions() {
   const [modal, setModal] = useState<ModalMode | null>(null)
   const [buyAsset, setBuyAsset] = useState<BuyAsset | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
 
   const loadData = useCallback(async () => {
     if (!user?.id) return
@@ -261,8 +255,6 @@ export default function Transactions() {
   }, [user?.id])
 
   useEffect(() => { loadData() }, [loadData])
-
-  if (!isAuthenticated) return null
 
   // ── Derived stats ──
   const totalDeposited = allTx

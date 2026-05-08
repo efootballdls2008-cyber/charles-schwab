@@ -24,6 +24,11 @@ export const ENDPOINTS = {
   userNotificationsMarkAllRead: (userId: number) => `/userNotifications/mark-all-read?userId=${userId}`,
   notifications: (userId: number) => `/notifications?userId=${userId}`,
   notificationById: (id: number) => `/notifications/${id}`,
+  notificationSettings: (userId: number) => `/notificationSettings/user/${userId}`,
+  notificationSettingsReset: (userId: number) => `/notificationSettings/user/${userId}/reset`,
+  adminNotificationSettings: (adminId: number) => `/notificationSettings/admin/${adminId}`,
+  adminNotificationSettingsReset: (adminId: number) => `/notificationSettings/admin/${adminId}/reset`,
   kyc: '/kyc',
   kycMe: '/kyc/me',
+  ticker: (symbol: string) => `/ticker/${symbol.toUpperCase()}USDT`,
 }

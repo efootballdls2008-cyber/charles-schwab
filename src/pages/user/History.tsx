@@ -173,7 +173,7 @@ type TabKey = 'all' | 'bot' | 'user'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function History() {
-  const { isAuthenticated, user } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const [trades, setTrades] = useState<TradeHistory[]>([])
@@ -183,10 +183,6 @@ export default function History() {
   const [page, setPage] = useState(1)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const PAGE_SIZE = 10
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
 
   useEffect(() => {
     if (!user?.id) return
@@ -204,8 +200,6 @@ export default function History() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [user?.id])
-
-  if (!isAuthenticated) return null
 
   const tabFiltered = useMemo(() => {
     if (tab === 'bot')  return trades.filter((t) => t.executedBy === 'Trade Bot')

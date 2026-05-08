@@ -41,9 +41,14 @@ interface Position {
   entryPrice: number
   amount: number
   openedAt: string
+  status: 'open' | 'closed'
   // bot extras
   strategy?: string
   signal?: string
+  finalPnl?: number | null
+  pnl?: number
+  pnlPct?: number
+  remainingSeconds?: number | null
   // user holding extras
   holdingName?: string
   holdingType?: 'stock' | 'crypto'
@@ -156,8 +161,65 @@ function LivePriceCell({ price }: { price: number | null }) {
 }
 
 function PnlCell({ position, currentPrice }: { position: Position; currentPrice: number | null }) {
-  if (!currentPrice) return <span className="text-xs text-gray-500">—</span>
+  // For open bot trades: show fluctuating simulated P&L (not real calculated value)
+  const [simulatedPnl, setSimulatedPnl] = useState<number | null>(null)
+  const [simulatedPct, setSimulatedPct] = useState<number | null>(null)
 
+  useEffect(() => {
+    if (position.source !== 'bot' || position.status !== 'open') return
+    // Start with a small random seed
+    const seed = (Math.random() - 0.5) * position.amount * (position.entryPrice * 0.002)
+    setSimulatedPnl(parseFloat(seed.toFixed(2)))
+    setSimulatedPct(parseFloat(((seed / (position.entryPrice * position.amount)) * 100).toFixed(2)))
+
+    const id = setInterval(() => {
+      setSimulatedPnl(prev => {
+        const drift = (Math.random() - 0.48) * position.amount * (position.entryPrice * 0.001)
+        const next = parseFloat(((prev ?? 0) + drift).toFixed(2))
+        setSimulatedPct(parseFloat(((next / (position.entryPrice * position.amount)) * 100).toFixed(2)))
+        return next
+      })
+    }, 2500)
+    return () => clearInterval(id)
+  }, [position.id, position.source, position.status, position.entryPrice, position.amount])
+
+  // Closed bot trade: show final P&L
+  if (position.source === 'bot' && position.status === 'closed') {
+    const pnl = position.finalPnl ?? position.pnl ?? 0
+    const pct = position.pnlPct ?? 0
+    const isProfit = pnl >= 0
+    const color = isProfit ? '#4ade80' : '#f87171'
+    return (
+      <div>
+        <p className="text-sm font-bold" style={{ color }}>
+          {isProfit ? '+' : ''}${Math.abs(pnl).toFixed(2)}
+        </p>
+        <p className="text-xs font-medium" style={{ color }}>
+          {isProfit ? '+' : ''}{pct.toFixed(2)}%
+        </p>
+      </div>
+    )
+  }
+
+  // Open bot trade: show fluctuating simulated value
+  if (position.source === 'bot' && position.status === 'open') {
+    if (simulatedPnl === null) return <span className="text-xs text-gray-500 animate-pulse">calculating…</span>
+    const isProfit = simulatedPnl >= 0
+    const color = isProfit ? '#4ade80' : '#f87171'
+    return (
+      <div>
+        <p className="text-sm font-bold animate-pulse" style={{ color }}>
+          {isProfit ? '+' : ''}${Math.abs(simulatedPnl).toFixed(2)}
+        </p>
+        <p className="text-xs font-medium" style={{ color }}>
+          {isProfit ? '+' : ''}{Math.abs(simulatedPct ?? 0).toFixed(2)}%
+        </p>
+      </div>
+    )
+  }
+
+  // Manual holdings: use real live price
+  if (!currentPrice) return <span className="text-xs text-gray-500">—</span>
   const pnl = position.side === 'buy'
     ? (currentPrice - position.entryPrice) * position.amount
     : (position.entryPrice - currentPrice) * position.amount
@@ -166,7 +228,6 @@ function PnlCell({ position, currentPrice }: { position: Position; currentPrice:
     : ((position.entryPrice - currentPrice) / position.entryPrice) * 100
   const isProfit = pnl >= 0
   const color = isProfit ? '#4ade80' : '#f87171'
-
   return (
     <div>
       <p className="text-sm font-bold" style={{ color }}>
@@ -198,11 +259,51 @@ function StatCard({ label, value, sub, color, icon }: {
   )
 }
 
+// ─── Time Left Cell ───────────────────────────────────────────────────────────
+
+function TimeLeftCell({ seconds }: { seconds: number }) {
+  const [remaining, setRemaining] = useState(seconds)
+
+  useEffect(() => {
+    setRemaining(seconds)
+    if (seconds <= 0) return
+    const id = setInterval(() => {
+      setRemaining(prev => {
+        if (prev <= 1) { clearInterval(id); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [seconds])
+
+  if (remaining <= 0) {
+    return <span className="text-xs font-semibold animate-pulse" style={{ color: '#f59e0b' }}>Closing…</span>
+  }
+
+  const h = Math.floor(remaining / 3600)
+  const m = Math.floor((remaining % 3600) / 60)
+  const s = remaining % 60
+  const display = h > 0
+    ? `${h}h ${m}m`
+    : m > 0
+    ? `${m}m ${s}s`
+    : `${s}s`
+
+  const urgentColor = remaining < 60 ? '#f87171' : remaining < 300 ? '#f59e0b' : '#4ade80'
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{ background: urgentColor }} />
+      <span className="text-xs font-semibold font-mono" style={{ color: urgentColor }}>{display}</span>
+    </div>
+  )
+}
+
 function EmptyState() {
   const navigate = useNavigate()
   return (
     <tr>
-      <td colSpan={10}>
+      <td colSpan={11}>
         <div className="flex flex-col items-center justify-center py-16 gap-4">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.15)' }}>
@@ -235,7 +336,7 @@ function EmptyState() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Positions() {
-  const { isAuthenticated, user } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const [positions, setPositions] = useState<Position[]>([])
@@ -246,10 +347,6 @@ export default function Positions() {
   const [selectedPosition, setSelectedPosition] = useState<PositionDetails | null>(null)
   const [closingId, setClosingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
-
   // ── Load real positions ─────────────────────────────────────────────────────
   const loadPositions = useCallback(async () => {
     if (!user?.id) return
@@ -257,9 +354,15 @@ export default function Positions() {
     try {
       const [botTrades, holdings] = await Promise.all([
         // Bot: open trades persisted to db
-        get<BotTrade[]>(ENDPOINTS.botTrades(user.id)).catch(() => [] as BotTrade[]),
+        get<BotTrade[]>(ENDPOINTS.botTrades(user.id)).catch((error) => {
+          console.error('Failed to load bot trades:', error)
+          return [] as BotTrade[]
+        }),
         // User: holdings bought via BuyModal
-        get<Holding[]>(ENDPOINTS.holdings(user.id)).catch(() => [] as Holding[]),
+        get<Holding[]>(ENDPOINTS.holdings(user.id)).catch((error) => {
+          console.error('Failed to load holdings:', error)
+          return [] as Holding[]
+        }),
       ])
 
       const rows: Position[] = []
@@ -277,8 +380,13 @@ export default function Positions() {
           entryPrice: t.entryPrice,
           amount: t.amount,
           openedAt: t.openedAt,
+          status: t.status,
           strategy: t.strategy,
           signal: t.signal,
+          finalPnl: t.finalPnl ?? null,
+          pnl: t.pnl,
+          pnlPct: t.pnlPct,
+          remainingSeconds: t.remainingSeconds ?? null,
         })
       }
 
@@ -296,6 +404,7 @@ export default function Positions() {
           entryPrice: h.avgBuyPrice,
           amount: h.quantity,
           openedAt: '—',
+          status: 'open',
           holdingName: h.name,
           holdingType: h.type,
         })
@@ -303,6 +412,8 @@ export default function Positions() {
 
       setPositions(rows)
       setLastRefresh(new Date())
+    } catch (error) {
+      console.error('Error loading positions:', error)
     } finally {
       setLoading(false)
     }
@@ -367,8 +478,6 @@ export default function Positions() {
       setClosingId(null)
     }
   }, [closingId, user, loadPositions])
-
-  if (!isAuthenticated) return null
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const filtered = filter === 'all' ? positions : positions.filter((p) => p.source === filter)
@@ -466,12 +575,12 @@ export default function Positions() {
         <div className="rounded-2xl overflow-hidden"
           style={{ background: 'rgba(22,15,53,0.9)', border: '1px solid rgba(255,255,255,0.07)' }}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm" style={{ borderCollapse: 'collapse' }}>
+            <table className="w-full min-w-[1100px] text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                   {[
                     'Source', 'Asset', 'Side', 'Entry Price',
-                    'Current Price', 'Size', 'Unrealized P&L', 'Opened', 'Info', 'Action',
+                    'Current Price', 'Size', 'Est. P&L', 'Time Left', 'Opened', 'Info', 'Action',
                   ].map((col) => (
                     <th key={col}
                       className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
@@ -485,7 +594,7 @@ export default function Positions() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-14 text-gray-500">
+                    <td colSpan={11} className="text-center py-14 text-gray-500">
                       <i className="fas fa-spinner fa-spin mr-2" />Loading positions…
                     </td>
                   </tr>
@@ -558,6 +667,15 @@ export default function Positions() {
                         {/* Unrealized P&L */}
                         <td className="px-4 py-3.5">
                           <PnlCell position={pos} currentPrice={cp} />
+                        </td>
+
+                        {/* Time Left — only for bot trades */}
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          {pos.source === 'bot' && pos.remainingSeconds !== null && pos.remainingSeconds !== undefined ? (
+                            <TimeLeftCell seconds={pos.remainingSeconds} />
+                          ) : (
+                            <span className="text-xs text-gray-600">—</span>
+                          )}
                         </td>
 
                         {/* Opened */}

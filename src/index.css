@@ -2,6 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile layout fixes */
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+}
+
+#root {
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* Prevent horizontal scrolling on mobile */
+* {
+    max-width: 100%;
+}
+
+/* Fix for mobile Safari viewport issues */
+@supports (-webkit-touch-callout: none) {
+    .min-h-screen {
+        min-height: -webkit-fill-available;
+    }
+}
+
+/* Prevent zoom on input focus on iOS */
+input, select, textarea {
+    font-size: 16px;
+}
+
+/* Smooth scrolling for mobile */
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Fix for mobile touch scrolling */
+body {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent horizontal scroll from animations */
+.overflow-x-hidden {
+    overflow-x: hidden !important;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 8px;
@@ -21,6 +67,25 @@
     background: #a28539;
 }
 
+/* Custom scrollbar for notifications */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(167,139,250,0.3);
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(167,139,250,0.5);
+}
+
 /* Hide scrollbar utility */
 .scrollbar-hide {
     -ms-overflow-style: none;
@@ -31,7 +96,37 @@
     display: none;
 }
 
+/* Line clamp utility */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 @layer components {
+
+    /* Mobile layout utilities */
+    .mobile-safe {
+        @apply w-full max-w-full overflow-x-hidden;
+    }
+
+    .mobile-container {
+        @apply w-full max-w-full px-4 sm:px-6 lg:px-8;
+    }
+
+    /* Prevent layout shift on mobile */
+    .mobile-stable {
+        @apply transform-gpu will-change-transform;
+    }
+
+    /* Mobile-friendly animations */
+    @media (prefers-reduced-motion: reduce) {
+        .motion-reduce {
+            animation: none !important;
+            transition: none !important;
+        }
+    }
 
     /* Nav */
     .nav-link {

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
 import DashboardHeader from '../../components/dashboard/DashboardHeader'
@@ -209,8 +208,7 @@ function StatusBanner({ submission, onResubmit }: { submission: KycSubmission; o
 
 // ── Main page ─────────────────────────────────────────────────
 export default function KYCPage() {
-  const { isAuthenticated, user } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [step, setStep] = useState(0)
   const [pageLoading, setPageLoading] = useState(true)
@@ -230,10 +228,6 @@ export default function KYCPage() {
   const [selfieFile, setSelfieFile] = useState<File | null>(null)
 
   const needsBack = ID_TYPES.find(t => t.value === idType)?.needsBack ?? false
-
-  useEffect(() => {
-    if (!isAuthenticated) navigate('/login', { replace: true })
-  }, [isAuthenticated, navigate])
 
   // Pre-fill name from user profile
   useEffect(() => {
@@ -301,8 +295,6 @@ export default function KYCPage() {
     if (step === 2) return !!frontFile && (!needsBack || !!backFile) && !!selfieFile
     return true
   }
-
-  if (!isAuthenticated) return null
 
   const inputCls = 'w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none'
   const inputSty = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
