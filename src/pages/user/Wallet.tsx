@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTransactions } from '../../hooks/useTransactions'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
@@ -88,7 +87,6 @@ function DonutChart() {
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function Wallet() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const { transactions } = useTransactions(user?.id)
 
   const [activeCard, setActiveCard] = useState(2) // dark card active by default
