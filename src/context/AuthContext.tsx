@@ -126,7 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) return
 
     try {
-      // Decode expiry without verifying (we trust our own stored token)
+      // Decode the JWT payload to read the `exp` claim for refresh scheduling.
+      // NOTE: This is intentionally NOT a security check — we are not verifying
+      // the signature here. That is fine because:
+      //   1. The token was already verified by the server when it was issued.
+      //   2. Every authenticated API request re-validates the token server-side.
+      //   3. We only use `exp` to schedule a proactive refresh; a tampered `exp`
+      //      would at worst delay or skip the refresh, not grant extra access.
+      // Never use client-side decoded claims for authorization decisions.
       const payload = JSON.parse(atob(token.split('.')[1]))
       const expiresAt = payload.exp * 1000
       const refreshAt = expiresAt - 24 * 60 * 60 * 1000 // 1 day before expiry
