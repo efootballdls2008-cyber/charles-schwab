@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FormData {
+  username: string
   firstName: string
   lastName: string
   email: string
@@ -22,6 +23,7 @@ interface FormData {
 }
 
 interface FieldErrors {
+  username?: string
   firstName?: string
   lastName?: string
   email?: string
@@ -448,7 +450,7 @@ export default function Register() {
   // username availability removed - using email as unique identifier
 
   const [form, setForm] = useState<FormData>({
-    firstName: '', lastName: '',
+    username: '', firstName: '', lastName: '',
     email: '', phone: '', country: '',
     password: '', confirmPassword: '',
     captchaInput: '', agreedToTerms: false,
@@ -559,7 +561,7 @@ export default function Register() {
 
     try {
       const user = await register({
-        username:        form.email.trim(), // Using email as username
+        username:        form.username.trim(),
         firstName:       form.firstName.trim(),
         lastName:        form.lastName.trim(),
         email:           form.email.trim(),
@@ -702,6 +704,30 @@ export default function Register() {
                     </div>
                     <FieldError msg={errors.lastName} />
                   </div>
+                </div>
+
+                {/* Username */}
+                <div>
+                  <Label htmlFor="reg-username">Username *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                      <i className="fas fa-at text-xs" style={{ color: '#6b7280' }} aria-hidden="true" />
+                    </span>
+                    <input
+                      id="reg-username"
+                      type="text"
+                      placeholder="Choose a unique username"
+                      autoComplete="username"
+                      value={form.username}
+                      onChange={set('username')}
+                      className={inputCls + ' pl-9'}
+                      style={errors.username ? errorInput : baseInput}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      aria-invalid={!!errors.username}
+                    />
+                  </div>
+                  <FieldError msg={errors.username} />
                 </div>
 
                 {/* Email */}
