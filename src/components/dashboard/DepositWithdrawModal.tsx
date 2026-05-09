@@ -514,21 +514,36 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                     {isDeposit ? 'Payment Method' : 'Withdrawal Method'}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {METHODS.map(m => (
-                      <button
-                        key={m.value}
-                        onClick={() => setMethod(m.value)}
-                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
-                        style={{
-                          background: method === m.value ? accentBg : 'rgba(255,255,255,0.04)',
-                          color: method === m.value ? accentColor : '#9ca3af',
-                          border: `1px solid ${method === m.value ? accentBorder : 'rgba(255,255,255,0.07)'}`,
-                        }}
-                      >
-                        <i className={`${m.icon} text-xs`} />
-                        <span className="text-xs">{m.label}</span>
-                      </button>
-                    ))}
+                    {METHODS.map(m => {
+                      const methodKey: Record<string, string> = {
+                        'Bank Transfer': 'bank_transfer',
+                        'Wire Transfer': 'wire_transfer',
+                        'Credit Card':   'credit_card',
+                        'Crypto':        'crypto',
+                      }
+                      const hasAccount = !isDeposit || platformAccounts.some(
+                        a => a.paymentMethod === methodKey[m.value] && a.status === 'active'
+                      )
+                      return (
+                        <button
+                          key={m.value}
+                          onClick={() => setMethod(m.value)}
+                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+                          style={{
+                            background: method === m.value ? accentBg : 'rgba(255,255,255,0.04)',
+                            color: method === m.value ? accentColor : '#9ca3af',
+                            border: `1px solid ${method === m.value ? accentBorder : 'rgba(255,255,255,0.07)'}`,
+                            opacity: isDeposit && !hasAccount ? 0.5 : 1,
+                          }}
+                        >
+                          <i className={`${m.icon} text-xs`} />
+                          <span className="text-xs">{m.label}</span>
+                          {isDeposit && !hasAccount && (
+                            <i className="fas fa-ban text-xs ml-auto" style={{ color: '#f87171' }} />
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -561,17 +576,29 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                   />
                 )}
 
-                {/* No account available warning */}
-                {isDeposit && !selectedPlatformAccount && (
-                  <div
-                    className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
-                    style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}
+                {/* No account available warning — shown inline under the method grid
+                    so the user sees it immediately when they pick an unsupported method,
+                    rather than only discovering it when the Continue button is disabled */}
+                {isDeposit && !selectedPlatformAccount && numAmount > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-start gap-3 px-4 py-3.5 rounded-xl"
+                    style={{
+                      background: 'rgba(248,113,113,0.10)',
+                      border: '1px solid rgba(248,113,113,0.35)',
+                    }}
                   >
-                    <i className="fas fa-exclamation-triangle text-xs mt-0.5 flex-shrink-0" style={{ color: '#f87171' }} />
-                    <p className="text-xs" style={{ color: '#f87171' }}>
-                      No account configured for {method}. Please contact support or try a different payment method.
-                    </p>
-                  </div>
+                    <i className="fas fa-exclamation-triangle text-sm mt-0.5 flex-shrink-0" style={{ color: '#f87171' }} />
+                    <div>
+                      <p className="text-xs font-bold mb-0.5" style={{ color: '#f87171' }}>
+                        {method} not available
+                      </p>
+                      <p className="text-xs" style={{ color: '#fca5a5' }}>
+                        No payment account is configured for <strong>{method}</strong>. Please choose a different method or contact support.
+                      </p>
+                    </div>
+                  </motion.div>
                 )}
 
                 {error && (
