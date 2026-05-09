@@ -82,6 +82,121 @@ const QUICK_AMOUNTS = [500, 1000, 5000, 10000]
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 
+// Component to display platform account details
+function PlatformAccountDetails({ account, method, accentColor, accentBg, accentBorder }: {
+  account: PlatformAccount
+  method: string
+  accentColor: string
+  accentBg: string
+  accentBorder: string
+}) {
+  const renderAccountInfo = () => {
+    switch (method) {
+      case 'Bank Transfer':
+        return (
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Bank Name</span>
+              <span className="text-xs font-semibold text-white">{account.bankName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Account Number</span>
+              <span className="text-xs font-mono font-semibold text-white">{account.accountNumber}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Routing Number</span>
+              <span className="text-xs font-mono font-semibold text-white">{account.routingNumber}</span>
+            </div>
+            {account.accountType && (
+              <div className="flex justify-between">
+                <span className="text-xs" style={{ color: '#9ca3af' }}>Account Type</span>
+                <span className="text-xs font-semibold text-white">{account.accountType}</span>
+              </div>
+            )}
+          </div>
+        )
+      
+      case 'Wire Transfer':
+        return (
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Bank Name</span>
+              <span className="text-xs font-semibold text-white">{account.bankName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Account Number</span>
+              <span className="text-xs font-mono font-semibold text-white">{account.accountNumber}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Routing Number</span>
+              <span className="text-xs font-mono font-semibold text-white">{account.routingNumber}</span>
+            </div>
+            {account.swiftCode && (
+              <div className="flex justify-between">
+                <span className="text-xs" style={{ color: '#9ca3af' }}>SWIFT Code</span>
+                <span className="text-xs font-mono font-semibold text-white">{account.swiftCode}</span>
+              </div>
+            )}
+          </div>
+        )
+      
+      case 'Crypto':
+        return (
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#9ca3af' }}>Wallet Address</span>
+              <span className="text-xs font-mono font-semibold text-white break-all">{account.walletAddress}</span>
+            </div>
+            {account.network && (
+              <div className="flex justify-between">
+                <span className="text-xs" style={{ color: '#9ca3af' }}>Network</span>
+                <span className="text-xs font-semibold text-white">{account.network}</span>
+              </div>
+            )}
+          </div>
+        )
+      
+      default:
+        return (
+          <div className="text-xs" style={{ color: '#9ca3af' }}>
+            Account details will be provided after selection.
+          </div>
+        )
+    }
+  }
+
+  return (
+    <div
+      className="rounded-xl p-4 space-y-3"
+      style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
+    >
+      <div className="flex items-center gap-2">
+        <i className="fas fa-building text-sm" style={{ color: accentColor }} />
+        <div>
+          <p className="text-xs font-bold" style={{ color: accentColor }}>
+            {account.accountName}
+          </p>
+          <p className="text-xs" style={{ color: '#6b7280' }}>
+            Send your {method.toLowerCase()} payment to:
+          </p>
+        </div>
+      </div>
+      
+      {renderAccountInfo()}
+      
+      <div
+        className="flex items-start gap-2 pt-2 mt-2"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}
+      >
+        <i className="fas fa-info-circle text-xs mt-0.5 flex-shrink-0" style={{ color: '#fbbf24' }} />
+        <p className="text-xs" style={{ color: '#9ca3af' }}>
+          Use the exact details above for your payment. Include your name in the transfer reference.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function DepositWithdrawModal({ mode, onClose, onSuccess }: DepositWithdrawModalProps) {
   const { user } = useAuth()
   const [step, setStep] = useState<'form' | 'recipient' | 'confirm' | 'success'>('form')
@@ -91,7 +206,8 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
   const [recipientDetails, setRecipientDetails] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [platformAccount, setPlatformAccount] = useState<PlatformAccount | null>(null)
+  const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>([])
+  const [selectedPlatformAccount, setSelectedPlatformAccount] = useState<PlatformAccount | null>(null)
   const [submittedTxId, setSubmittedTxId] = useState('')
   const [limits, setLimits] = useState<PlatformLimits>({
     minDepositAmount: 10,
@@ -110,10 +226,23 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
 
   const currentFields = RECIPIENT_FIELDS[method] ?? []
 
-  // Reset recipient fields when method changes
+  // Reset recipient fields when method changes and find matching platform account
   useEffect(() => {
     setRecipientDetails({})
-  }, [method])
+    
+    // Find platform account that matches the selected method
+    const methodMapping: Record<string, string> = {
+      'Bank Transfer': 'bank_transfer',
+      'Wire Transfer': 'wire_transfer', 
+      'Credit Card': 'credit_card',
+      'Crypto': 'crypto'
+    }
+    
+    const matchingAccount = platformAccounts.find(account => 
+      account.paymentMethod === methodMapping[method]
+    )
+    setSelectedPlatformAccount(matchingAccount || null)
+  }, [method, platformAccounts])
 
   const loadPlatformData = useCallback(async () => {
     try {
@@ -123,8 +252,9 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
         get<PlatformAccount[]>('/platformAccounts?context=deposit'),
         get<PlatformLimits[]>(ENDPOINTS.platformSettings),
       ])
-      const active = accounts.find(a => a.status === 'active')
-      if (active) setPlatformAccount(active)
+      const activeAccounts = accounts.filter(a => a.status === 'active')
+      setPlatformAccounts(activeAccounts)
+      
       if (settingsArr?.[0]) {
         const s = settingsArr[0]
         setLimits({
@@ -150,7 +280,8 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
     return ''
   })()
 
-  const canProceed = numAmount >= minAmount && numAmount <= maxAmount && !amountError
+  const canProceed = numAmount >= minAmount && numAmount <= maxAmount && !amountError && 
+    (isDeposit ? selectedPlatformAccount !== null : true)
 
   // All required recipient fields must be filled
   const recipientComplete = currentFields.every(f => (recipientDetails[f.key] ?? '').trim() !== '')
@@ -419,6 +550,30 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                   </div>
                 )}
 
+                {/* Platform Account Details for Deposits */}
+                {isDeposit && selectedPlatformAccount && (
+                  <PlatformAccountDetails
+                    account={selectedPlatformAccount}
+                    method={method}
+                    accentColor={accentColor}
+                    accentBg={accentBg}
+                    accentBorder={accentBorder}
+                  />
+                )}
+
+                {/* No account available warning */}
+                {isDeposit && !selectedPlatformAccount && (
+                  <div
+                    className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                    style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}
+                  >
+                    <i className="fas fa-exclamation-triangle text-xs mt-0.5 flex-shrink-0" style={{ color: '#f87171' }} />
+                    <p className="text-xs" style={{ color: '#f87171' }}>
+                      No account configured for {method}. Please contact support or try a different payment method.
+                    </p>
+                  </div>
+                )}
+
                 {error && (
                   <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}>
                     <i className="fas fa-exclamation-triangle mr-1.5" />{error}
@@ -603,6 +758,75 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                     </div>
                   )}
 
+                  {/* Platform Account Details for Deposits */}
+                  {isDeposit && selectedPlatformAccount && (
+                    <>
+                      <div
+                        className="pt-2 mt-1"
+                        style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+                      >
+                        <p className="text-xs font-semibold mb-2" style={{ color: accentColor }}>
+                          <i className="fas fa-building mr-1.5" />
+                          Send Payment To
+                        </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs" style={{ color: '#6b7280' }}>Account Name</span>
+                            <span className="text-xs font-semibold text-white">{selectedPlatformAccount.accountName}</span>
+                          </div>
+                          {method === 'Bank Transfer' && (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs" style={{ color: '#6b7280' }}>Bank</span>
+                                <span className="text-xs font-semibold text-white">{selectedPlatformAccount.bankName}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs" style={{ color: '#6b7280' }}>Account #</span>
+                                <span className="text-xs font-mono font-semibold text-white">{selectedPlatformAccount.accountNumber}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs" style={{ color: '#6b7280' }}>Routing #</span>
+                                <span className="text-xs font-mono font-semibold text-white">{selectedPlatformAccount.routingNumber}</span>
+                              </div>
+                            </>
+                          )}
+                          {method === 'Wire Transfer' && (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs" style={{ color: '#6b7280' }}>Bank</span>
+                                <span className="text-xs font-semibold text-white">{selectedPlatformAccount.bankName}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs" style={{ color: '#6b7280' }}>Account #</span>
+                                <span className="text-xs font-mono font-semibold text-white">{selectedPlatformAccount.accountNumber}</span>
+                              </div>
+                              {selectedPlatformAccount.swiftCode && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs" style={{ color: '#6b7280' }}>SWIFT</span>
+                                  <span className="text-xs font-mono font-semibold text-white">{selectedPlatformAccount.swiftCode}</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {method === 'Crypto' && (
+                            <>
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="text-xs flex-shrink-0" style={{ color: '#6b7280' }}>Wallet</span>
+                                <span className="text-xs font-mono font-semibold text-right break-all text-white">{selectedPlatformAccount.walletAddress}</span>
+                              </div>
+                              {selectedPlatformAccount.network && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs" style={{ color: '#6b7280' }}>Network</span>
+                                  <span className="text-xs font-semibold text-white">{selectedPlatformAccount.network}</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   {/* Pending notice */}
                   <div
                     className="flex items-start gap-2 pt-2 mt-1"
@@ -683,7 +907,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
 
                 {/* Deposit: show platform account to send TO */}
                 {isDeposit && (
-                  platformAccount ? (
+                  selectedPlatformAccount ? (
                     <div
                       className="w-full rounded-xl p-4 space-y-2 text-left"
                       style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}
@@ -692,17 +916,17 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                         <i className="fas fa-university mr-1.5" />
                         Transfer funds to this account
                       </p>
-                      {(platformAccount.paymentMethod === 'crypto'
+                      {(selectedPlatformAccount.paymentMethod === 'crypto'
                         ? [
-                            ['Network',        platformAccount.network],
-                            ['Wallet Address', platformAccount.walletAddress],
+                            ['Network',        selectedPlatformAccount.network],
+                            ['Wallet Address', selectedPlatformAccount.walletAddress],
                             ['Reference',      submittedTxId],
                           ]
                         : [
-                            ['Bank',         platformAccount.bankName],
-                            ['Account Name', platformAccount.accountName],
-                            ['Account No.',  platformAccount.accountNumber],
-                            ['Routing No.',  platformAccount.routingNumber],
+                            ['Bank',         selectedPlatformAccount.bankName],
+                            ['Account Name', selectedPlatformAccount.accountName],
+                            ['Account No.',  selectedPlatformAccount.accountNumber],
+                            ['Routing No.',  selectedPlatformAccount.routingNumber],
                             ['Reference',    submittedTxId],
                           ]
                       ).map(([label, value]) => (
