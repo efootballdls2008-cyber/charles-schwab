@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 import { useNotifications, type NotificationType } from '../../hooks/useNotifications'
 
 interface NotificationSoundProps {
-  userId?: number
+  userId?: number   // kept for API compatibility, no longer used
   enabled?: boolean
   volume?: number
 }
@@ -124,8 +124,8 @@ class NotificationAudio {
   }
 }
 
-export default function NotificationSound({ userId, enabled = true, volume = 0.5 }: NotificationSoundProps) {
-  const { notifications } = useNotifications(userId)
+export default function NotificationSound({ enabled = true, volume = 0.5 }: NotificationSoundProps) {
+  const { notifications } = useNotifications()
   const audioRef = useRef<NotificationAudio | null>(null)
   const lastNotificationIdRef = useRef<number | null>(null)
 

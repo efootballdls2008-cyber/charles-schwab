@@ -10,7 +10,7 @@ import { useNotifications, type Notification } from '../../hooks/useNotification
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface NotificationBellProps {
-  userId?: number
+  userId?: number   // kept for API compatibility, no longer used (context provides data)
   className?: string
   onNotificationClick?: () => void
 }
@@ -153,7 +153,7 @@ function DropdownRow({ notification, index, onMarkRead, onDelete, onClick }: Row
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export default function NotificationBell({ userId, className = '', onNotificationClick }: NotificationBellProps) {
+export default function NotificationBell({ className = '', onNotificationClick }: NotificationBellProps) {
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [filter, setFilter] = useState<QuickFilter>('all')
@@ -161,7 +161,7 @@ export default function NotificationBell({ userId, className = '', onNotificatio
 
   useClickOutside(dropdownRef, () => setIsOpen(false))
 
-  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications(userId)
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications()
 
   const filtered = applyFilter(notifications, filter).slice(0, 8)
 

@@ -458,8 +458,23 @@ export default function Positions() {
     setClosingId(pos.id)
     try {
       if (pos.source === 'bot') {
-        // Mark bot trade as closed
-        await patch(ENDPOINTS.botTradeById(pos.id), { status: 'closed' })
+        // Mark bot trade as closed — pass current P&L so the backend can credit balance
+        const cp = livePrices[pos.base] ?? pos.entryPrice
+        const pnl = pos.side === 'buy'
+          ? parseFloat(((cp - pos.entryPrice) * pos.amount).toFixed(2))
+          : parseFloat(((pos.entryPrice - cp) * pos.amount).toFixed(2))
+        const pnlPct = pos.side === 'buy'
+          ? parseFloat((((cp - pos.entryPrice) / pos.entryPrice) * 100).toFixed(2))
+          : parseFloat((((pos.entryPrice - cp) / pos.entryPrice) * 100).toFixed(2))
+        await patch(ENDPOINTS.botTradeById(pos.id), {
+          status: 'closed',
+          exitPrice: cp,
+          pnl,
+          pnlPct,
+          finalPnl: pnl,
+          closedAt: new Date().toISOString(),
+          closeReason: 'manual',
+        })
       } else {
         // For user holdings: id is "holding-<numericId>"
         const numericId = parseInt(pos.id.replace('holding-', ''), 10)

@@ -6,6 +6,7 @@ import { get } from '../../api/client'
 import { ENDPOINTS } from '../../api/endpoints'
 import type { Deposit } from '../../services/depositService'
 import type { Purchase } from '../../services/holdingService'
+import type { BotTrade } from '../../engine/botEngine'
 
 interface RecentActivityProps {
   userId: number | undefined
@@ -19,6 +20,8 @@ const ACTIVITY_ICONS: Record<string, { icon: string; bg: string; color: string }
   buy:       { icon: 'fas fa-chart-line',   bg: 'rgba(96,165,250,0.15)',   color: '#60a5fa' },
   sell:      { icon: 'fas fa-chart-line',   bg: 'rgba(251,191,36,0.15)',   color: '#fbbf24' },
   bot:       { icon: 'fas fa-robot',        bg: 'rgba(139,92,246,0.15)',   color: '#a78bfa' },
+  bot_open:  { icon: 'fas fa-robot',        bg: 'rgba(139,92,246,0.15)',   color: '#a78bfa' },
+  bot_close: { icon: 'fas fa-robot',        bg: 'rgba(139,92,246,0.15)',   color: '#a78bfa' },
 }
 
 type ActivityItem = {
@@ -75,11 +78,38 @@ function formatPurchase(p: Purchase): ActivityItem {
   }
 }
 
+function formatBotTrade(t: BotTrade): ActivityItem {
+  const isClosed = t.status === 'closed'
+  const pnl = t.finalPnl ?? t.pnl ?? 0
+  const isProfit = pnl >= 0
+  const dateStr = isClosed ? t.closedAt! : t.openedAt
+  return {
+    id:       `bot-${t.id}`,
+    type:     isClosed ? 'bot_close' : 'bot_open',
+    title:    isClosed
+      ? `Bot Trade Closed — ${t.pair}`
+      : `Bot Trade Opened — ${t.pair}`,
+    subtitle: `${t.strategy} · ${t.side.toUpperCase()} · ${t.amount} units`,
+    amount:   Math.abs(pnl),
+    positive: isClosed ? isProfit : false,
+    time:     (() => {
+      const d = new Date(dateStr)
+      return `${toDateLabel(d.toISOString().slice(0, 10))}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+    })(),
+    txId:     '',
+    status:   t.status,
+    sortKey:  new Date(dateStr).getTime() || 0,
+  }
+}
+
+
 export default function RecentActivity({ userId }: RecentActivityProps) {
   const navigate = useNavigate()
   const { deposits, loading: dLoading, error: dError } = useDeposits(userId)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [pLoading, setPLoading]   = useState(true)
+  const [botTrades, setBotTrades] = useState<BotTrade[]>([])
+  const [bLoading, setBLoading]   = useState(true)
 
   useEffect(() => {
     if (!userId) { setPLoading(false); return }
@@ -90,12 +120,22 @@ export default function RecentActivity({ userId }: RecentActivityProps) {
       .finally(() => setPLoading(false))
   }, [userId])
 
-  const loading = dLoading || pLoading
+  useEffect(() => {
+    if (!userId) { setBLoading(false); return }
+    setBLoading(true)
+    get<BotTrade[]>(ENDPOINTS.botTrades(userId))
+      .then(data => setBotTrades(data))
+      .catch(() => setBotTrades([]))
+      .finally(() => setBLoading(false))
+  }, [userId])
+
+  const loading = dLoading || pLoading || bLoading
   const error   = dError
 
   const activities: ActivityItem[] = [
     ...deposits.map(formatDeposit),
     ...purchases.map(formatPurchase),
+    ...botTrades.map(formatBotTrade),
   ]
     .sort((a, b) => b.sortKey - a.sortKey)
     .slice(0, 8)

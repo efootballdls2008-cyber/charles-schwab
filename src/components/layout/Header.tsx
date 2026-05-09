@@ -72,6 +72,12 @@ function NavDropdown({ label, items }: NavDropdownProps) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="nav-link"
+        style={open ? {
+          color: '#e8c96a',
+          background: 'rgba(162,133,57,0.1)',
+          border: '1.5px solid rgba(162,133,57,0.55)',
+          borderRadius: '8px',
+        } : {}}
         aria-expanded={open}
         aria-haspopup="true"
       >
@@ -88,8 +94,10 @@ function NavDropdown({ label, items }: NavDropdownProps) {
               className="nav-dropdown-item"
               onClick={() => setOpen(false)}
             >
-              <Icon name={item.icon} className="nav-icon" />
-              {item.label}
+              <span className="nav-icon">
+                <Icon name={item.icon} />
+              </span>
+              <span>{item.label}</span>
             </Link>
           ))}
         </div>

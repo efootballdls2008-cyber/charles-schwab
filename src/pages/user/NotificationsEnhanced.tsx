@@ -3,7 +3,6 @@
  */
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuth } from '../../hooks/useAuth'
 import { useNotifications, type Notification, type NotificationCategory } from '../../hooks/useNotifications'
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
 import DashboardHeader from '../../components/dashboard/DashboardHeader'
@@ -200,12 +199,11 @@ function EmptyState({ tab }: { tab: FilterTab }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function NotificationsEnhanced() {
-  const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FilterTab>('All')
 
   const { notifications, loading, error, unreadCount, markAsRead, markAllAsRead, deleteNotification } =
-    useNotifications(user?.id)
+    useNotifications()
 
   const filtered = activeTab === 'Settings' ? [] : filterNotifications(notifications, activeTab)
 

@@ -67,7 +67,7 @@ export default function Login() {
         <Toast message={toast.message} type={toast.type} onClose={clearToast} />
       )}
 
-      <SectionBackground minHeight="80vh" className="flex items-center justify-center px-4 py-16">
+      <SectionBackground minHeight="100vh" className="flex items-center justify-center px-4 py-16">
         <AuthCard title="Welcome back" subtitle="Sign in to your trading account">
           <form className="space-y-4" onSubmit={handleSubmit}>
             {/* Email */}

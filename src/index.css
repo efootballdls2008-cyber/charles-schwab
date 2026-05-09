@@ -134,18 +134,60 @@ body {
     }
 
     .nav-dropdown {
-        @apply absolute left-0 mt-2 w-52 rounded-xl shadow-2xl py-2 z-50;
-        background-color: #160f35;
-        border: 1px solid rgba(162, 133, 57, 0.25);
+        @apply absolute left-0 z-50;
+        top: calc(100% + 10px);
+        min-width: 220px;
+        background: linear-gradient(160deg, #1a1245 0%, #130e38 60%, #0f0b2e 100%);
+        border: 1px solid rgba(162, 133, 57, 0.35);
+        border-radius: 14px;
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.55),
+            0 0 0 1px rgba(162, 133, 57, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        padding: 10px 8px;
+        backdrop-filter: blur(20px);
+        animation: dropdownFadeIn 0.18s ease forwards;
+    }
+
+    @keyframes dropdownFadeIn {
+        from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+        to   { opacity: 1; transform: translateY(0)   scale(1); }
     }
 
     .nav-dropdown-item {
-        @apply flex items-center px-4 py-2.5 text-sm text-[#c8c8d8] hover:text-[#a28539] transition-colors no-underline;
+        @apply flex items-center no-underline;
+        padding: 11px 14px;
+        border-radius: 9px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #c8c8d8;
+        transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+        gap: 13px;
+    }
+
+    .nav-dropdown-item:hover {
+        background: rgba(162, 133, 57, 0.12);
+        color: #e8c96a;
+        transform: translateX(3px);
     }
 
     .nav-icon {
-        @apply w-4 mr-3;
-        color: #a28539;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(162, 133, 57, 0.15);
+        color: #c9a84c;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .nav-dropdown-item:hover .nav-icon {
+        background: rgba(162, 133, 57, 0.28);
+        color: #e8c96a;
     }
 
     /* Buttons */

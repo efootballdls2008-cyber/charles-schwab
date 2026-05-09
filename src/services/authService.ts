@@ -155,7 +155,9 @@ export interface RegisterConflictError extends Error {
 export async function register(payload: RegisterPayload): Promise<User | null> {
   let response: RegisterResponse
   try {
-    response = await post<RegisterResponse>('/auth/register', payload)
+    // Remove username from payload since backend doesn't support it yet
+    const { username, ...registrationData } = payload
+    response = await post<RegisterResponse>('/auth/register', registrationData)
   } catch (err) {
     const status  = (err as { status?: number }).status
     const body    = (err as { body?: { field?: string; message?: string } }).body
