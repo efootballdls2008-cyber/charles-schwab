@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNotifications, type Notification } from '../../hooks/useNotifications'
 
 interface NotificationToastProps {
-  userId?: number
+  userId?: number   // kept for API compatibility, no longer used
   position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center'
   maxVisible?: number
 }
@@ -148,11 +148,10 @@ function ToastItem({ notification, onDismiss, index }: ToastItemProps) {
 }
 
 export default function NotificationToast({ 
-  userId, 
   position = 'top-right', 
   maxVisible = 3 
 }: NotificationToastProps) {
-  const { notifications } = useNotifications(userId)
+  const { notifications } = useNotifications()
   const [visibleToasts, setVisibleToasts] = useState<Notification[]>([])
   const [lastNotificationId, setLastNotificationId] = useState<number | null>(null)
 

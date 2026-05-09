@@ -720,6 +720,7 @@ class BotEngine {
         pnlPct: closed.pnlPct,
         closedAt: closed.closedAt,
         status: 'closed',
+        closeReason: reason,
       })
     } catch { /* non-critical */ }
 

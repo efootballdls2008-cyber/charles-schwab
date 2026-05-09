@@ -8,7 +8,7 @@ export default defineConfig({
       // All /api/* requests are forwarded to the backend — the browser
       // only ever sees your own origin, never the backend URL or port.
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'https://schwab-dackend-production.up.railway.app',
         changeOrigin: true,
         secure: false,
         // Pass error responses (4xx, 5xx) through as-is — don't convert them to 500

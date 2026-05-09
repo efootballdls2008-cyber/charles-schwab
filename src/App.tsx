@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './context/ToastContext'
 import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
+import { NotificationProvider } from './context/NotificationContext'
 import Layout from './components/layout/Layout'
 import PrivateRoute from './components/auth/PrivateRoute'
 import NotificationToast from './components/ui/NotificationToast'
@@ -53,11 +54,13 @@ function AppContent() {
   return (
     <>
       <Routes>
+        {/* Auth routes — no Header/Footer */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
         {/* Public routes with shared Header/Footer layout */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route path="/contacts" element={<Contact />} />
           <Route path="/for-traders" element={<Education />} />
 
@@ -99,12 +102,10 @@ function AppContent() {
       {user && (
         <>
           <NotificationToast 
-            userId={user.id} 
             position="top-right"
             maxVisible={3}
           />
           <NotificationSound 
-            userId={user.id}
             enabled={true}
             volume={0.3}
           />
@@ -119,7 +120,9 @@ export default function App() {
     <ToastProvider>
       <AuthProvider>
         <SocketProvider>
-          <AppContent />
+          <NotificationProvider>
+            <AppContent />
+          </NotificationProvider>
         </SocketProvider>
       </AuthProvider>
     </ToastProvider>

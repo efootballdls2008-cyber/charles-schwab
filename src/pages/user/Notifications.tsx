@@ -4,7 +4,6 @@
  */
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuth } from '../../hooks/useAuth'
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
 import DashboardHeader from '../../components/dashboard/DashboardHeader'
 import NotificationSettings from '../../components/dashboard/NotificationSettings'
@@ -585,7 +584,6 @@ function StatsStrip({ notifications, unreadCount }: { notifications: Notificatio
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
-  const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all')
   const [selected, setSelected] = useState<number[]>([])
@@ -593,7 +591,7 @@ export default function NotificationsPage() {
   const [detail, setDetail] = useState<Notification | null>(null)
 
   const { notifications, loading, error, unreadCount, markAsRead, markAllAsRead, deleteNotification } =
-    useNotifications(user?.id)
+    useNotifications()
 
   // Clear selection when category changes
   useEffect(() => { setSelected([]); setDetail(null) }, [activeCategory])

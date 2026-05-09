@@ -3,6 +3,7 @@ import { login as authLogin, fetchUser, refreshToken } from '../services/authSer
 import type { User } from '../services/authService'
 import { registerUnauthorizedHandler, clearUnauthorizedHandler } from '../api/client'
 import { useToast } from './ToastContext'
+import { botEngine } from '../engine/botEngine'
 
 const STORAGE_KEY = 'cs_user'
 const TOKEN_KEY = 'cs_token'
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** Clear session state and storage, optionally showing a reason toast. */
   const clearSession = (reason?: string) => {
+    botEngine.reset()
     setUser(null)
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(TOKEN_KEY)

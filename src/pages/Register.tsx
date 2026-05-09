@@ -486,6 +486,14 @@ export default function Register() {
   function validateStep1(): boolean {
     const e: FieldErrors = {}
 
+    if (!form.username.trim()) {
+      e.username = 'Username is required.'
+    } else if (form.username.trim().length < 3) {
+      e.username = 'Username must be at least 3 characters.'
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(form.username.trim())) {
+      e.username = 'Username can only contain letters, numbers, dots, dashes, and underscores.'
+    }
+
     if (!form.firstName.trim()) e.firstName = 'First name is required.'
     if (!form.lastName.trim())  e.lastName  = 'Last name is required.'
 
