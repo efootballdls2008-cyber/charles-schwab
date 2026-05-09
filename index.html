@@ -19,6 +19,27 @@
 <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Smartsupp Live Chat -->
+    <script type="text/javascript">
+      var _smartsupp = _smartsupp || {};
+      _smartsupp.key = 'a9f96e012a83abf844a68242b5010b169dad9568';
+      window.smartsupp || (function (d) {
+        var s, c, o = smartsupp = function () { o._.push(arguments) };
+        o._ = [];
+        s = d.getElementsByTagName('script')[0];
+        c = d.createElement('script');
+        c.type = 'text/javascript';
+        c.charset = 'utf-8';
+        c.async = true;
+        c.src = 'https://www.smartsuppchat.com/loader.js?';
+        s.parentNode.insertBefore(c, s);
+      })(document);
+
+      // Welcome message for first-time visitors
+      smartsupp('chat:message', 'Hello! 👋 Welcome to Charles Schwab! We\'ve noticed it\'s your first time here. If you have any questions or need help getting started, feel free to reach out — we\'re happy to help!');
+    </script>
+    <noscript>Powered by <a href="https://www.smartsupp.com" target="_blank">Smartsupp</a></noscript>
 </body>
 
 </html>

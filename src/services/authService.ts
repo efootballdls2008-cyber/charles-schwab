@@ -136,31 +136,47 @@ export async function refreshToken(): Promise<string | null> {
   }
 }
 
-export async function register(  firstName: string,
-  lastName: string,
-  email: string,
-  password: string,
-): Promise<User | null> {
+export interface RegisterPayload {
+  username: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  country: string
+  password: string
+  confirmPassword: string
+}
+
+/** Shape of a field-level conflict error returned by the backend (HTTP 409) */
+export interface RegisterConflictError extends Error {
+  field?: 'email' | 'username'
+}
+
+export async function register(payload: RegisterPayload): Promise<User | null> {
   let response: RegisterResponse
   try {
-    response = await post<RegisterResponse>('/auth/register', {
-      firstName,
-      lastName,
-      email,
-      password,
-    })
+    response = await post<RegisterResponse>('/auth/register', payload)
   } catch (err) {
-    const status = (err as { status?: number }).status
+    const status  = (err as { status?: number }).status
+    const body    = (err as { body?: { field?: string; message?: string } }).body
     const message = err instanceof Error ? err.message : ''
 
     if (status === 429) {
       throw new Error('Too many registration attempts. Please wait a few minutes and try again.')
     }
-    if (status === 409 || message.toLowerCase().includes('already')) {
-      throw new Error('An account with this email already exists.')
+    if (status === 409) {
+      // Backend tells us which field caused the conflict
+      const conflict: RegisterConflictError = new Error(
+        body?.message ?? 'An account with this email already exists.'
+      )
+      conflict.field = (body?.field as 'email' | 'username') ?? 'email'
+      throw conflict
     }
     if (status === 403) {
-      throw new Error('Registration is currently disabled.')
+      throw new Error('Registration is currently disabled. Please try again later.')
+    }
+    if (message.toLowerCase().includes('already')) {
+      throw new Error('An account with this email already exists.')
     }
     throw new Error('Unable to reach the server. Please check your connection and try again.')
   }
@@ -171,4 +187,18 @@ export async function register(  firstName: string,
 
   localStorage.setItem('cs_token', response.token)
   return await fetchUser()
+}
+
+/** Check whether a username is available without submitting the full form. */
+export async function checkUsername(username: string): Promise<boolean> {
+  try {
+    const data = await post<{ success: boolean; available: boolean }>(
+      '/auth/check-username',
+      { username }
+    )
+    return data?.available ?? false
+  } catch {
+    // Network error — optimistically allow; server will reject on submit if taken
+    return true
+  }
 }
