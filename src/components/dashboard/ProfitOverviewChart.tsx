@@ -13,24 +13,28 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { useDeposits } from '../../hooks/useDeposits'
 import { useProfitOverview } from '../../hooks/useProfitOverview'
+import type { ProfitPeriod } from '../../hooks/useProfitOverview'
 
-const PERIODS = ['This Month', 'This Week', 'This Year'] as const
-type Period = (typeof PERIODS)[number]
+const PERIODS: ProfitPeriod[] = ['Today', 'This Week', 'This Month', 'This Year']
+type Period = ProfitPeriod
 
 interface CustomTooltipProps {
   active?: boolean
   payload?: { value: number }[]
   label?: string
+  period?: Period
 }
 
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, label, period }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   return (
     <div
       className="rounded-lg px-3 py-2 text-xs"
       style={{ background: '#1e1b3a', border: '1px solid rgba(139,92,246,0.3)' }}
     >
-      <p className="text-gray-400">{label}</p>
+      <p className="text-gray-400">
+        {period === 'Today' ? label : label}
+      </p>
       <p className="font-bold text-white mt-0.5">
         ${payload[0].value.toLocaleString()}
       </p>
@@ -49,7 +53,21 @@ const GHOST_BARS = [
   { day: 'Sun', h: 50 },
 ]
 
-function NoDataYetState() {
+// Ghost bars for Today (hourly)
+const GHOST_BARS_TODAY = [
+  { day: '6AM', h: 20 },
+  { day: '8AM', h: 35 },
+  { day: '10AM', h: 55 },
+  { day: '12PM', h: 42 },
+  { day: '2PM', h: 70 },
+  { day: '4PM', h: 60 },
+  { day: '6PM', h: 80 },
+  { day: '8PM', h: 50 },
+  { day: '10PM', h: 30 },
+]
+
+function NoDataYetState({ period }: { period: Period }) {
+  const bars = period === 'Today' ? GHOST_BARS_TODAY : GHOST_BARS
   return (
     <div className="flex-1 flex flex-col" style={{ minHeight: '200px' }}>
       {/* Ghost bar chart */}
@@ -63,7 +81,7 @@ function NoDataYetState() {
 
         {/* Ghost bars */}
         <div className="absolute inset-x-0 bottom-6 flex items-end justify-around px-4 gap-2">
-          {GHOST_BARS.map((bar, i) => (
+          {bars.map((bar, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
               <motion.div
                 className="w-full rounded-t-md"
@@ -117,7 +135,8 @@ function NoDataYetState() {
 }
 
 // Shown when user hasn't deposited at all
-function NoDepositState() {
+function NoDepositState({ period }: { period: Period }) {
+  const bars = period === 'Today' ? GHOST_BARS_TODAY : GHOST_BARS
   return (
     <div className="flex-1 flex flex-col" style={{ minHeight: '200px' }}>
       <div className="flex-1 relative" style={{ minHeight: '160px' }}>
@@ -130,7 +149,7 @@ function NoDepositState() {
 
         {/* Very faint ghost bars */}
         <div className="absolute inset-x-0 bottom-6 flex items-end justify-around px-4 gap-2">
-          {GHOST_BARS.map((bar, i) => (
+          {bars.map((bar, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
               <div
                 className="w-full rounded-t-md"
@@ -183,23 +202,32 @@ function NoDepositState() {
 export default function ProfitOverviewChart() {
   const { user } = useAuth()
   const { deposits } = useDeposits(user?.id)
-  const { data: profitData, loading } = useProfitOverview(user?.id)
+  const { data, loading } = useProfitOverview(user?.id)
 
-  const [period, setPeriod] = useState<Period>('This Month')
+  const [period, setPeriod] = useState<Period>('Today')
+
+  const balance = user?.balance ?? 0
 
   // A user has "started" if they have at least one completed deposit
   const hasDeposit = deposits.some(
     (d) => d.type === 'deposit' && d.status === 'completed'
   )
 
-  const periodRecord = profitData.find((p) => p.period === period)
+  const periodRecord = data.find((p) => p.period === period)
   const chartData = periodRecord?.data ?? []
-  const total = chartData.length > 0 ? chartData[chartData.length - 1].profit : 0
-  const pct = chartData.length > 1
-    ? (((chartData[chartData.length - 1].profit - chartData[0].profit) / chartData[0].profit) * 100).toFixed(2)
-    : '0.00'
 
-  const hasChartData = chartData.length > 0
+  // Total = sum of all bars (not just last bar)
+  const total = chartData.reduce((sum, d) => sum + d.profit, 0)
+  const pct = balance > 0 ? ((total / balance) * 100).toFixed(2) : '0.00'
+  
+  // Show chart if we have data structure (even if all zeros) and user has deposited
+  const shouldShowChart = hasDeposit && chartData.length > 0
+  const hasActualProfitData = chartData.some(d => d.profit !== 0)
+
+  // Subtitle: show current date for Today, or period label for others
+  const now = new Date()
+  const todayLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+  const subtitle = period === 'Today' ? todayLabel : period
 
   return (
     <motion.div
@@ -214,13 +242,16 @@ export default function ProfitOverviewChart() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-base font-bold text-white">Profit Overview</h2>
+      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h2 className="text-base font-bold text-white">Profit Overview</h2>
+          <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>{subtitle}</p>
+        </div>
         {hasDeposit && !loading && (
           <div className="flex items-center gap-3">
-            {hasChartData && (
-              <span className="text-sm font-semibold" style={{ color: '#4ade80' }}>
-                + ${total.toLocaleString()} ({pct}%)
+            {hasActualProfitData && (
+              <span className="text-sm font-semibold" style={{ color: total >= 0 ? '#4ade80' : '#f87171' }}>
+                {total >= 0 ? '+' : ''}${Math.abs(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({total >= 0 ? '+' : ''}{pct}%)
               </span>
             )}
             <div className="relative">
@@ -257,42 +288,20 @@ export default function ProfitOverviewChart() {
       )}
 
       {/* No deposit yet */}
-      {!loading && !hasDeposit && <NoDepositState />}
+      {!loading && !hasDeposit && <NoDepositState period={period} />}
 
       {/* Has deposit but no profit data yet */}
-      {!loading && hasDeposit && !hasChartData && <NoDataYetState />}
+      {!loading && hasDeposit && shouldShowChart && !hasActualProfitData && <NoDataYetState period={period} />}
 
       {/* Chart */}
-      {!loading && hasDeposit && hasChartData && (
-        <div className="flex-1" style={{ minHeight: '200px' }}>
+      {!loading && shouldShowChart && hasActualProfitData && (
+        <div className="flex-1" style={{ minHeight: '200px', height: '200px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} barSize={18} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
-              <XAxis
-                dataKey="day"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: '#6b7280', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v: number) => `${v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}`}
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-              <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
-                {chartData.map((_entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={
-                      index === chartData.length - 1
-                        ? 'url(#barGradientActive)'
-                        : 'url(#barGradient)'
-                    }
-                  />
-                ))}
-              </Bar>
+            <BarChart
+              data={chartData}
+              barSize={period === 'Today' ? 14 : 18}
+              margin={{ top: 4, right: 4, left: -20, bottom: period === 'Today' ? 16 : 0 }}
+            >
               <defs>
                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#4ade80" stopOpacity={0.8} />
@@ -302,7 +311,48 @@ export default function ProfitOverviewChart() {
                   <stop offset="0%" stopColor="#a78bfa" stopOpacity={1} />
                   <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.6} />
                 </linearGradient>
+                <linearGradient id="barGradientNegative" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f87171" stopOpacity={0.8} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3} />
+                </linearGradient>
               </defs>
+              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+              <XAxis
+                dataKey="day"
+                tick={{
+                  fill: '#6b7280',
+                  fontSize: period === 'Today' ? 9 : 10,
+                }}
+                angle={period === 'Today' ? -35 : 0}
+                textAnchor={period === 'Today' ? 'end' : 'middle'}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+              />
+              <YAxis
+                tick={{ fill: '#6b7280', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => `${v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}`}
+              />
+              <Tooltip
+                content={<CustomTooltip period={period} />}
+                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+              />
+              <Bar dataKey="profit" radius={[4, 4, 0, 0]} minPointSize={2}>
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      entry.profit < 0 
+                        ? 'url(#barGradientNegative)'
+                        : index === chartData.length - 1
+                        ? 'url(#barGradientActive)'
+                        : 'url(#barGradient)'
+                    }
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

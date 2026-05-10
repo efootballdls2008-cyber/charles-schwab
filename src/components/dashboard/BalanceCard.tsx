@@ -1,7 +1,8 @@
-import { motion } from 'framer-motion'
+import { useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from '../../services/authService'
-import { useDeposits } from '../../hooks/useDeposits'
-import { useProfitOverview } from '../../hooks/useProfitOverview'
+import { useBalanceActivity } from '../../hooks/useBalanceActivity'
+import type { ActivityItem, ActivityStyle } from '../../hooks/useBalanceActivity'
 
 interface BalanceCardProps {
   user: User | null
@@ -9,23 +10,130 @@ interface BalanceCardProps {
   onWithdraw?: () => void
 }
 
-export default function BalanceCard({ user, onDeposit: _onDeposit, onWithdraw: _onWithdraw }: BalanceCardProps) {
+// ─── Style map ────────────────────────────────────────────────────────────────
+
+const STYLE_MAP: Record<ActivityStyle, { color: string; bg: string; border: string }> = {
+  success: { color: '#4ade80', bg: 'rgba(74,222,128,0.15)',  border: 'rgba(74,222,128,0.25)' },
+  danger:  { color: '#f87171', bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.25)' },
+  warning: { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',  border: 'rgba(245,158,11,0.25)'  },
+  info:    { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)',  border: 'rgba(96,165,250,0.25)'  },
+}
+
+// ─── Anchor (Profit this month) ───────────────────────────────────────────────
+
+function buildAnchor(pnl: number, pct: number): ActivityItem {
+  const pos = pnl >= 0
+  return {
+    id: '__anchor__',
+    style: pos ? 'success' : 'danger',
+    icon: pos ? 'fas fa-arrow-trend-up' : 'fas fa-arrow-trend-down',
+    label: 'Profit this month',
+    amount: pnl,
+    amountLabel: `${pos ? '+' : ''}$${Math.abs(pnl).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} (${pos ? '+' : ''}${Math.abs(pct).toFixed(2)}%)`,
+    timestamp: '',
+  }
+}
+
+// ─── Subline pill ─────────────────────────────────────────────────────────────
+
+function SublinePill({ item }: { item: ActivityItem }) {
+  const s = STYLE_MAP[item.style]
+  return (
+    <motion.span
+      key={item.id}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+      style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}
+      initial={{ opacity: 0, y: 6, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -6, scale: 0.94 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <i className={`${item.icon} text-xs`} />
+      {item.amountLabel}
+    </motion.span>
+  )
+}
+
+// ─── Rotating subline ─────────────────────────────────────────────────────────
+
+const FLASH_MS = 4000
+
+function BalanceSubline({
+  monthlyPnl,
+  monthlyPnlPct,
+  flashEvent,
+  dismissFlash,
+}: {
+  monthlyPnl: number
+  monthlyPnlPct: number
+  flashEvent: ActivityItem | null
+  dismissFlash: () => void
+}) {
+  const anchor = buildAnchor(monthlyPnl, monthlyPnlPct)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // When a flash event arrives, auto-dismiss after 4s
+  useEffect(() => {
+    if (!flashEvent) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      dismissFlash()
+    }, FLASH_MS)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [flashEvent, dismissFlash])
+
+  // What to display right now
+  const current = flashEvent ?? anchor
+  const s = STYLE_MAP[current.style]
+
+  return (
+    <div className="flex items-center gap-2 mt-3 flex-wrap min-h-[28px]">
+      <AnimatePresence mode="wait">
+        <SublinePill key={current.id} item={current} />
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={`lbl-${current.id}`}
+          className="text-xs"
+          style={{ color: 'rgba(196,181,253,0.5)' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          {current.label}
+        </motion.span>
+      </AnimatePresence>
+
+      {/* Progress bar — only shown during a flash event */}
+      {flashEvent && (
+        <div className="w-full mt-1.5">
+          <motion.div
+            className="h-0.5 rounded-full"
+            style={{ background: s.color, opacity: 0.4 }}
+            initial={{ width: '100%' }}
+            animate={{ width: '0%' }}
+            transition={{ duration: FLASH_MS / 1000, ease: 'linear' }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Main BalanceCard ─────────────────────────────────────────────────────────
+
+export default function BalanceCard({ user }: BalanceCardProps) {
   const balance = user?.balance ?? 0
 
-  const { deposits } = useDeposits(user?.id)
-  const { data: profitData } = useProfitOverview(user?.id)
-
-  const hasDeposit = deposits.some((d) => d.type === 'deposit' && d.status === 'completed')
-
-  // Derive profit from "This Month" period data
-  const monthRecord = profitData.find((p) => p.period === 'This Month')
-  const monthData = monthRecord?.data ?? []
-  const profit = hasDeposit && monthData.length > 0
-    ? monthData[monthData.length - 1].profit
-    : 0
-  const profitPct = hasDeposit && monthData.length > 1
-    ? Number((((monthData[monthData.length - 1].profit - monthData[0].profit) / monthData[0].profit) * 100).toFixed(2))
-    : 0
+  const { monthlyPnl, monthlyPnlPct, flashEvent, dismissFlash } =
+    useBalanceActivity(user?.id, balance)
 
   const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -94,7 +202,7 @@ export default function BalanceCard({ user, onDeposit: _onDeposit, onWithdraw: _
       {/* ── Divider ── */}
       <div className="mx-6" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
 
-      {/* ── Balance + profit ── */}
+      {/* ── Balance + subline ── */}
       <div className="px-6 py-5 flex-1">
         <motion.p
           className="font-bold text-white leading-none"
@@ -107,18 +215,12 @@ export default function BalanceCard({ user, onDeposit: _onDeposit, onWithdraw: _
           {formatted}
         </motion.p>
 
-        <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <span
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
-            style={{ background: 'rgba(74,222,128,0.15)', color: '#4ade80' }}
-          >
-            <i className="fas fa-arrow-trend-up text-xs" />
-            +${profit.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({profitPct}%)
-          </span>
-          <span className="text-xs" style={{ color: 'rgba(196,181,253,0.5)' }}>
-            Profit this month
-          </span>
-        </div>
+        <BalanceSubline
+          monthlyPnl={monthlyPnl}
+          monthlyPnlPct={monthlyPnlPct}
+          flashEvent={flashEvent}
+          dismissFlash={dismissFlash}
+        />
       </div>
 
       {/* ── Divider ── */}

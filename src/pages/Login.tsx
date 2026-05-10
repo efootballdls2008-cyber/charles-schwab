@@ -143,6 +143,18 @@ export default function Login() {
               Sign Up
             </Link>
           </p>
+
+          <div className="text-center">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+              </svg>
+              Back to Home
+            </Link>
+          </div>
         </AuthCard>
       </SectionBackground>
     </>

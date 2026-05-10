@@ -9,6 +9,7 @@ import { DEFAULT_STOCK, DEFAULT_CRYPTO } from '../../components/dashboard/QuickA
 import { getDeposits, type Deposit } from '../../services/depositService'
 import { getTransactions, getTradeHistory } from '../../services/transactionService'
 import type { Transaction, TradeHistory } from '../../services/transactionService'
+import type { BotTrade } from '../../hooks/useAlgorithmEngine'
 import { get } from '../../api/client'
 import { ENDPOINTS } from '../../api/endpoints'
 
@@ -111,6 +112,26 @@ function mapPurchase(p: Purchase): UnifiedTx {
   }
 }
 
+function mapBotTrade(t: BotTrade): UnifiedTx {
+  const base = t.pair.split('/')[0] ?? 'BTC'
+  const pnl = t.finalPnl ?? t.pnl ?? 0
+  const d = new Date(t.closedAt ?? t.openedAt ?? '')
+  const date = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const time = isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  return {
+    id: `bot-${t.id}`,
+    category: 'trade',
+    date,
+    time,
+    label: t.pair,
+    symbol: base,
+    color: undefined,
+    amount: Math.abs(pnl),
+    status: 'completed',
+    txId: t.id,
+    side: t.side === 'buy' ? 'Buy' : 'Sell',
+  }
+}
 // ─── Badge components ─────────────────────────────────────────────────────────
 const CATEGORY_META: Record<TxCategory, { label: string; icon: string; color: string; bg: string; border: string }> = {
   deposit:         { label: 'Deposit',       icon: 'fas fa-arrow-down',    color: '#4ade80', bg: 'rgba(74,222,128,0.12)',   border: 'rgba(74,222,128,0.25)'   },
@@ -230,17 +251,25 @@ export default function Transactions() {
     if (!user?.id) return
     setLoading(true)
     try {
-      const [deposits, transactions, trades, purchases] = await Promise.all([
+      const [deposits, transactions, trades, purchases, botTrades] = await Promise.all([
         getDeposits(user.id),
         getTransactions(user.id),
         getTradeHistory(user.id),
         get<Purchase[]>(ENDPOINTS.purchases(user.id)),
+        get<BotTrade[]>(ENDPOINTS.botTrades(user.id)).catch(() => [] as BotTrade[]),
       ])
+
+      // Closed bot trades not already in trade_history (avoid duplicates)
+      const tradeHistoryIds = new Set(trades.map(t => t.tradeId))
+      const closedBotTrades = (botTrades as BotTrade[])
+        .filter(t => t.status === 'closed' && !tradeHistoryIds.has(t.id))
+
       const unified: UnifiedTx[] = [
         ...deposits.map(mapDeposit),
         ...transactions.map(mapTransaction),
         ...trades.map(mapTrade),
         ...purchases.map(mapPurchase),
+        ...closedBotTrades.map(mapBotTrade),
       ].sort((a, b) => {
         const da = new Date(`${a.date} ${a.time}`).getTime()
         const db = new Date(`${b.date} ${b.time}`).getTime()
@@ -553,7 +582,6 @@ export default function Transactions() {
                             </p>
                           )}
                         </td>
-
                         {/* Status */}
                         <td className="px-4 py-3">
                           <StatusBadge status={tx.status} />

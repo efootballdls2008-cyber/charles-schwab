@@ -314,6 +314,7 @@ class BotEngine {
   getOpenTrade() { return this.openTrade }
   getScanStatus() { return this.scanStatus }
   getElapsed() { return this.elapsed }
+  getCurrentPrice() { return this.currentPrice }
   getPerformance(): AlgoPerformance { return this.calcPerformance() }
 
   // ── Init: load persisted state from db ──────────────────────────────────
@@ -456,6 +457,25 @@ class BotEngine {
     return { ok: true }
   }
 
+  // ── Public: clear a specific trade from engine state ────────────────────
+  // Called by the Positions page after manually closing a bot trade so the
+  // engine doesn't immediately re-open the same position before the next
+  // DB sync cycle runs.
+
+  clearTradeById(id: string) {
+    if (this.openTrade?.id === id) {
+      this.openTrade = null
+    }
+    this.trades = this.trades.map((t) =>
+      t.id === id ? { ...t, status: 'closed' } : t
+    )
+    this.notify()
+    // Re-open a new position if the bot is still running
+    if (this.state.running) {
+      setTimeout(() => this.openImmediatePosition(), 2000)
+    }
+  }
+
   // ── Sync openTrade against DB ────────────────────────────────────────────
   // Clears this.openTrade if the trade has been closed externally.
 
@@ -470,6 +490,10 @@ class BotEngine {
         // Also sync the local trades array
         this.trades = trades
         this.notify()
+        // Re-open a new position if the bot is still running
+        if (this.state.running) {
+          setTimeout(() => this.openImmediatePosition(), 2000)
+        }
       }
     } catch {
       // Non-critical — if the request fails, fall through to the force check
@@ -781,6 +805,12 @@ class BotEngine {
       : reason === 'stop-loss'
         ? `✗ Stop-loss triggered at ${exitPrice.toFixed(2)} — ${pnlPct.toFixed(2)}%`
         : `↺ Signal reversal — trade closed at ${exitPrice.toFixed(2)}`
+
+    // Re-open a new position shortly after close — same logic as on start/resume.
+    // This prevents the bot from getting stuck in a HOLD loop after a trade closes.
+    if (this.state.running) {
+      setTimeout(() => this.openImmediatePosition(), 2000)
+    }
   }
 
   private checkExitConditions(currentPrice: number) {

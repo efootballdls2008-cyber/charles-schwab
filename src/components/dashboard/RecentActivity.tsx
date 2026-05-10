@@ -138,11 +138,11 @@ export default function RecentActivity({ userId }: RecentActivityProps) {
     ...botTrades.map(formatBotTrade),
   ]
     .sort((a, b) => b.sortKey - a.sortKey)
-    .slice(0, 8)
+    .slice(0, 12)
 
   return (
     <motion.div
-      className="rounded-2xl p-5 flex flex-col"
+      className="rounded-2xl p-5 flex flex-col h-full"
       style={{
         background: 'rgba(13,8,36,0.95)',
         border: '1px solid rgba(255,255,255,0.08)',
@@ -153,7 +153,7 @@ export default function RecentActivity({ userId }: RecentActivityProps) {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h2 className="text-base font-bold text-white">Recent Activity</h2>
         <button
           onClick={() => navigate('/user/transactions')}

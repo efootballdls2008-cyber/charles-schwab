@@ -363,7 +363,7 @@ export default function Dashboard() {
                 Desktop: Market | Recent Activity | Bot AI Trade (3 cols)
             ─────────────────────────────────────────────────────────────── */}
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5"
+              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 items-start"
               variants={rowVariants}
             >
               {/* On tablet: spans full width. On xl: normal 1-col — AlgoBot first */}

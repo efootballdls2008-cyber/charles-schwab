@@ -452,20 +452,25 @@ export default function AlgoBotPanel({
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-xl p-2.5 text-center"
+                className="rounded-xl p-2.5 text-center flex flex-col items-center min-w-0"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                <p className="text-xs mb-0.5" style={{ color: '#6b7280' }}>{s.label}</p>
+                <p className="text-xs mb-1 w-full truncate" style={{ color: '#6b7280' }}>{s.label}</p>
                 <motion.p
-                  className="text-sm font-bold"
-                  style={{ color: s.color }}
+                  className="font-bold leading-tight w-full"
+                  style={{
+                    color: s.color,
+                    fontSize: s.value.length > 8 ? '10px' : s.value.length > 6 ? '11px' : '13px',
+                    wordBreak: 'break-all',
+                    lineHeight: 1.2,
+                  }}
                   key={s.value}
                   initial={{ opacity: 0.5 }}
                   animate={{ opacity: 1 }}
                 >
                   {s.value}
                 </motion.p>
-                <p className="text-xs mt-0.5" style={{ color: '#4b5563' }}>{s.sub}</p>
+                <p className="text-xs mt-1 w-full" style={{ color: '#4b5563', fontSize: '10px', wordBreak: 'break-all' }}>{s.sub}</p>
               </div>
             ))}
           </div>
@@ -474,10 +479,10 @@ export default function AlgoBotPanel({
         {/* ── PnL Sparkline ── */}
         {performance.pnlHistory.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>Cumulative PnL</p>
+            <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+              <p className="text-xs font-semibold flex-shrink-0" style={{ color: '#9ca3af' }}>Cumulative PnL</p>
               <span
-                className="text-xs font-bold"
+                className="text-xs font-bold truncate text-right"
                 style={{ color: performance.totalPnl >= 0 ? '#4ade80' : '#f87171' }}
               >
                 {performance.totalPnl >= 0 ? '+' : ''}{performance.totalPnl.toFixed(2)} USDT
@@ -503,11 +508,20 @@ export default function AlgoBotPanel({
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-xl p-2.5"
+                className="rounded-xl p-2.5 min-w-0"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                <p className="text-xs mb-0.5" style={{ color: '#6b7280' }}>{s.label}</p>
-                <p className="text-sm font-bold" style={{ color: s.color }}>{s.value}</p>
+                <p className="text-xs mb-0.5 truncate" style={{ color: '#6b7280' }}>{s.label}</p>
+                <p
+                  className="font-bold leading-tight"
+                  style={{
+                    color: s.color,
+                    fontSize: s.value.length > 8 ? '10px' : '13px',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {s.value}
+                </p>
               </div>
             ))}
           </div>
