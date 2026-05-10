@@ -14,10 +14,6 @@ function fmtElapsed(s: number) {
   return `${sec}s`
 }
 
-function fmtPrice(n: number) {
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
 // ─── Mini PnL Sparkline ───────────────────────────────────────────────────────
 
 function PnlSparkline({ history }: { history: { pnl: number; cumulative: number }[] }) {
@@ -143,25 +139,24 @@ function IndicatorRow({ signal }: { signal: AlgoSignal | null }) {
 
 // ─── Open Position Card ───────────────────────────────────────────────────────
 
-function OpenPositionCard({ trade, midPrice }: { trade: BotTrade; midPrice: number }) {
+function OpenPositionCard({ trade }: { trade: BotTrade; midPrice: number }) {
   const navigate = useNavigate()
-  const pnl = trade.side === 'buy'
-    ? (midPrice - trade.entryPrice) * trade.amount
-    : (trade.entryPrice - midPrice) * trade.amount
-  const pnlPct = trade.side === 'buy'
-    ? ((midPrice - trade.entryPrice) / trade.entryPrice) * 100
-    : ((trade.entryPrice - midPrice) / trade.entryPrice) * 100
-  const positive = pnl >= 0
 
   return (
     <motion.div
       className="rounded-xl p-3"
-      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${positive ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}` }}
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.2)' }}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold text-white">Open Position</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: trade.side === 'buy' ? '#4ade80' : '#f87171' }} />
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: trade.side === 'buy' ? '#4ade80' : '#f87171' }} />
+          </span>
+          <span className="text-xs font-bold text-white">Open Position</span>
+        </div>
         <span
           className="text-xs font-bold px-2 py-0.5 rounded-full uppercase"
           style={{
@@ -173,44 +168,10 @@ function OpenPositionCard({ trade, midPrice }: { trade: BotTrade; midPrice: numb
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        {[
-          { label: 'Amount', value: `${trade.amount.toFixed(5)}` },
-          { label: 'Entry', value: fmtPrice(trade.entryPrice) },
-          { label: 'Mark', value: fmtPrice(midPrice) },
-        ].map((s) => (
-          <div key={s.label}>
-            <p className="text-xs mb-0.5" style={{ color: '#6b7280' }}>{s.label}</p>
-            <p className="text-xs font-semibold text-white">{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs mb-0.5" style={{ color: '#6b7280' }}>Unrealised PnL</p>
-          <motion.p
-            className="text-sm font-bold"
-            style={{ color: positive ? '#4ade80' : '#f87171' }}
-            key={pnl.toFixed(2)}
-            initial={{ opacity: 0.6 }}
-            animate={{ opacity: 1 }}
-          >
-            {positive ? '+' : ''}{pnl.toFixed(2)} USDT
-          </motion.p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs mb-0.5" style={{ color: '#6b7280' }}>Return</p>
-          <p className="text-sm font-bold" style={{ color: positive ? '#4ade80' : '#f87171' }}>
-            {positive ? '+' : ''}{pnlPct.toFixed(2)}%
-          </p>
-        </div>
-      </div>
-
       {/* Navigate to Positions page */}
       <button
         onClick={() => navigate('/user/positions')}
-        className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-95"
+        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-95"
         style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}
       >
         <i className="fas fa-chart-area text-xs" />
@@ -327,6 +288,7 @@ interface AlgoBotPanelProps {
   openTrade: BotTrade | null
   onStart: () => void
   onStop: () => Promise<{ ok: boolean; reason?: string }>
+  onForceEntry?: () => Promise<{ ok: boolean; reason?: string }>
   onOpenSettings: () => void
 }
 
@@ -342,17 +304,37 @@ export default function AlgoBotPanel({
   openTrade,
   onStart,
   onStop,
+  onForceEntry,
   onOpenSettings,
 }: AlgoBotPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const isScanning = scanStatus.includes('signal') || scanStatus.includes('Signal')
   const [stopWarning, setStopWarning] = useState(false)
+  const [forceEntryLoading, setForceEntryLoading] = useState(false)
+  const [forceEntryMsg, setForceEntryMsg] = useState<string | null>(null)
 
   const handleStop = async () => {
     const result = await onStop()
     if (!result.ok && result.reason === 'open_trade') {
       setStopWarning(true)
       setTimeout(() => setStopWarning(false), 3500)
+    }
+  }
+
+  const handleForceEntry = async () => {
+    if (!onForceEntry || forceEntryLoading || openTrade) return
+    setForceEntryLoading(true)
+    setForceEntryMsg(null)
+    const result = await onForceEntry()
+    setForceEntryLoading(false)
+    if (!result.ok) {
+      const msgs: Record<string, string> = {
+        already_open: 'A position is already open.',
+        bot_not_running: 'Start the bot first.',
+        insufficient_data: 'Not enough price data yet — wait a moment.',
+      }
+      setForceEntryMsg(msgs[result.reason ?? ''] ?? 'Could not open position.')
+      setTimeout(() => setForceEntryMsg(null), 3500)
     }
   }
 
@@ -558,6 +540,64 @@ export default function AlgoBotPanel({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Force Entry button — only shown when no open position */}
+          <AnimatePresence>
+            {!openTrade && onForceEntry && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <motion.button
+                  onClick={handleForceEntry}
+                  disabled={forceEntryLoading}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
+                  style={{
+                    background: forceEntryLoading
+                      ? 'rgba(251,191,36,0.06)'
+                      : 'rgba(251,191,36,0.12)',
+                    color: forceEntryLoading ? 'rgba(251,191,36,0.45)' : '#fbbf24',
+                    border: `1px solid ${forceEntryLoading ? 'rgba(251,191,36,0.15)' : 'rgba(251,191,36,0.3)'}`,
+                  }}
+                  whileHover={!forceEntryLoading ? { background: 'rgba(251,191,36,0.2)' } : undefined}
+                  whileTap={!forceEntryLoading ? { scale: 0.97 } : undefined}
+                  title="Open a position immediately, bypassing the confidence threshold"
+                >
+                  {forceEntryLoading ? (
+                    <>
+                      <motion.i
+                        className="fas fa-circle-notch text-xs"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      />
+                      Opening position…
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-bolt text-xs" />
+                      Force Entry
+                    </>
+                  )}
+                </motion.button>
+                <AnimatePresence>
+                  {forceEntryMsg && (
+                    <motion.p
+                      className="text-xs text-center mt-1.5"
+                      style={{ color: '#f87171' }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      {forceEntryMsg}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="grid grid-cols-2 gap-2">
             <motion.button
               onClick={handleStop}

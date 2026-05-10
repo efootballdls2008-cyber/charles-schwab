@@ -388,6 +388,7 @@ export default function Dashboard() {
                     openTrade={algoEngine.openTrade}
                     onStart={algoEngine.start}
                     onStop={algoEngine.stop}
+                    onForceEntry={algoEngine.forceEntry}
                     onOpenSettings={() => setBotSettingsOpen(true)}
                   />
                 </div>

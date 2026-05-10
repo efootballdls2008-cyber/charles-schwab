@@ -6,6 +6,7 @@ import { get, patch, put } from '../../api/client'
 import { ENDPOINTS } from '../../api/endpoints'
 import type { BotTrade } from '../../hooks/useAlgorithmEngine'
 import type { Holding } from '../../services/holdingService'
+import { botEngine } from '../../engine/botEngine'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import PositionDetailsModal from '../../components/dashboard/PositionDetailsModal'
 import type { PositionDetails } from '../../components/dashboard/PositionDetailsModal'
@@ -426,6 +427,24 @@ export default function Positions() {
     return () => clearInterval(id)
   }, [loadPositions])
 
+  // ── Sync live P&L from botEngine into bot positions ─────────────────────────
+  // The engine updates openTrade.pnl every 2s. We mirror that into our local
+  // positions state so the stat cards stay live without a full DB refresh.
+  useEffect(() => {
+    const unsub = botEngine.subscribe(() => {
+      const openTrade = botEngine.getOpenTrade()
+      if (!openTrade) return
+      setPositions((prev) =>
+        prev.map((p) =>
+          p.source === 'bot' && p.id === openTrade.id
+            ? { ...p, pnl: openTrade.pnl, pnlPct: openTrade.pnlPct }
+            : p
+        )
+      )
+    })
+    return () => { unsub() }
+  }, [])
+
   // ── Live price callback ─────────────────────────────────────────────────────
   const handlePrice = useCallback((base: string, price: number) => {
     setLivePrices((prev) => prev[base] === price ? prev : { ...prev, [base]: price })
@@ -504,11 +523,20 @@ export default function Positions() {
   let profitCount = 0
   let lossCount = 0
   for (const p of positions) {
-    const cp = livePrices[p.base]
-    if (!cp) continue
-    const pnl = p.side === 'buy'
-      ? (cp - p.entryPrice) * p.amount
-      : (p.entryPrice - cp) * p.amount
+    let pnl: number
+
+    if (p.source === 'bot') {
+      // Use the engine-updated pnl stored on the position (updated every 2s by botEngine)
+      pnl = p.pnl ?? 0
+    } else {
+      // Manual holdings: calculate from live price
+      const cp = livePrices[p.base]
+      if (!cp) continue
+      pnl = p.side === 'buy'
+        ? (cp - p.entryPrice) * p.amount
+        : (p.entryPrice - cp) * p.amount
+    }
+
     totalUnrealizedPnl += pnl
     if (pnl >= 0) profitCount++; else lossCount++
   }

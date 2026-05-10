@@ -61,6 +61,10 @@ export function useAlgorithmEngine(
     return await botEngine.stop()
   }, [])
 
+  const forceEntry = useCallback(async () => {
+    return await botEngine.forceEntry()
+  }, [])
+
   const updateSettings = useCallback((updates: Partial<ReturnType<typeof botEngine.getState>>) => {
     botEngine.updateSettings(updates)
   }, [])
@@ -75,6 +79,7 @@ export function useAlgorithmEngine(
     openTrade: botEngine.getOpenTrade(),
     start,
     stop,
+    forceEntry,
     updateSettings,
   }
 }
