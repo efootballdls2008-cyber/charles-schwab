@@ -629,7 +629,7 @@ function TradePanelRight({
   algoEngine: ReturnType<typeof useAlgorithmEngine>
   onOpenSettings: () => void
 }) {
-  const { state, signal, trades, performance, scanStatus, elapsed, openTrade, start, stop } = algoEngine
+  const { state, signal, trades, performance, scanStatus, elapsed, openTrade, start, stop, forceEntry } = algoEngine
   const botEnabled = state.running
   const [showWarning, setShowWarning] = useState(false)
 
@@ -735,6 +735,7 @@ function TradePanelRight({
             openTrade={openTrade}
             onStart={start}
             onStop={stop}
+            onForceEntry={forceEntry}
             onOpenSettings={onOpenSettings}
           />
         ) : (

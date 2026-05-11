@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import NotificationBell from '../ui/NotificationBell'
+import { botEngine } from '../../engine/botEngine'
+import type { AlgoSignal } from '../../engine/botEngine'
 
 interface DashboardHeaderProps {
   onMenuClick: () => void
@@ -23,6 +25,98 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, onClose: () =
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [ref, onClose])
+}
+
+// ─── Bot Signal Badge ─────────────────────────────────────────────────────────
+
+function BotSignalBadge() {
+  const navigate = useNavigate()
+  const [running, setRunning] = useState(false)
+  const [signal, setSignal] = useState<AlgoSignal | null>(null)
+  const [hasOpen, setHasOpen] = useState(false)
+  const [pair, setPair] = useState('BTC/USDT')
+
+  useEffect(() => {
+    const sync = () => {
+      const state = botEngine.getState()
+      setRunning(state.running)
+      setPair(state.pair)
+      setSignal(botEngine.getSignal())
+      setHasOpen(!!botEngine.getOpenTrade())
+    }
+    sync()
+    const unsub = botEngine.subscribe(sync)
+    return () => { unsub() }
+  }, [])
+
+  if (!running) return null
+
+  const sig = signal?.type ?? 'HOLD'
+  const confidence = signal?.confidence ?? 0
+
+  // Colour scheme per signal
+  const scheme = sig === 'BUY'
+    ? { color: '#4ade80', bg: 'rgba(74,222,128,0.10)', border: 'rgba(74,222,128,0.25)', track: 'rgba(74,222,128,0.15)' }
+    : sig === 'SELL'
+    ? { color: '#f87171', bg: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.25)', track: 'rgba(248,113,113,0.15)' }
+    : { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.25)',  track: 'rgba(245,158,11,0.15)' }
+
+  return (
+    <motion.button
+      onClick={() => navigate('/user/exchange')}
+      className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-1.5 cursor-pointer select-none"
+      style={{ background: scheme.bg, border: `1px solid ${scheme.border}` }}
+      whileHover={{ opacity: 0.85 }}
+      whileTap={{ scale: 0.97 }}
+      title={`AI Bot active — ${pair} — click to open Exchange`}
+    >
+      {/* Pulse dot */}
+      <span className="relative flex h-2 w-2 flex-shrink-0">
+        <span
+          className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+          style={{ background: scheme.color }}
+        />
+        <span
+          className="relative inline-flex rounded-full h-2 w-2"
+          style={{ background: scheme.color }}
+        />
+      </span>
+
+      {/* Label + pair */}
+      <div className="flex flex-col items-start leading-none gap-0.5">
+        <span className="text-xs font-bold" style={{ color: scheme.color }}>
+          {hasOpen ? 'Position Open' : `AI Bot · ${sig}`}
+        </span>
+        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>
+          {pair}
+        </span>
+      </div>
+
+      {/* Confidence range bar */}
+      {sig !== 'HOLD' && confidence > 0 && (
+        <div className="flex flex-col items-end gap-0.5 ml-1">
+          <span className="text-xs font-semibold" style={{ color: scheme.color, fontSize: '10px' }}>
+            {confidence.toFixed(0)}%
+          </span>
+          <div
+            className="w-14 h-1 rounded-full overflow-hidden"
+            style={{ background: scheme.track }}
+          >
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: scheme.color }}
+              initial={{ width: 0 }}
+              animate={{ width: `${confidence}%` }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Robot icon */}
+      <i className="fas fa-robot text-xs flex-shrink-0" style={{ color: scheme.color, opacity: 0.7 }} />
+    </motion.button>
+  )
 }
 
 export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
@@ -115,6 +209,9 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         >
           <i className="fas fa-search text-sm text-gray-400" />
         </button>
+
+        {/* Bot signal badge — only visible when bot is running */}
+        <BotSignalBadge />
 
         {/* Mail */}
         <button

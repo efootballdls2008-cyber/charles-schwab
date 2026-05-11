@@ -276,6 +276,7 @@ class BotEngine {
   private intervalId: ReturnType<typeof setInterval> | null = null
   private elapsedId: ReturnType<typeof setInterval> | null = null
   private pnlUpdateId: ReturnType<typeof setInterval> | null = null
+  private syncIntervalId: ReturnType<typeof setInterval> | null = null
   private elapsed = 0
   private signal: AlgoSignal | null = null
   private scanStatus = 'Initialising algorithm…'
@@ -313,6 +314,7 @@ class BotEngine {
   getOpenTrade() { return this.openTrade }
   getScanStatus() { return this.scanStatus }
   getElapsed() { return this.elapsed }
+  getCurrentPrice() { return this.currentPrice }
   getPerformance(): AlgoPerformance { return this.calcPerformance() }
 
   // ── Init: load persisted state from db ──────────────────────────────────
@@ -373,6 +375,10 @@ class BotEngine {
       if (this.state.running) {
         this.scanStatus = 'Resuming algorithm…'
         this.startLoop()
+        // If no open trade exists after refresh, open one immediately
+        if (!this.openTrade) {
+          setTimeout(() => this.openImmediatePosition(), 2000)
+        }
       }
 
       this.notify()
@@ -417,25 +423,29 @@ class BotEngine {
   async start() {
     if (this.state.running) return
     this.state = { ...this.state, running: true }
-    this.scanStatus = 'Algorithm started — scanning market…'
+    this.scanStatus = 'Algorithm started — opening position…'
     this.tick = 0
     this.elapsed = 0
     await this.persistSettings()
     this.startLoop()
     this.notify()
 
-    // Quick entry: Generate signal immediately and force entry within 20s max
+    // Open a position immediately on start — no scanning delay
     setTimeout(() => {
-      this.forceQuickEntry()
-    }, 2000)
+      this.openImmediatePosition()
+    }, 1500)
   }
 
   /**
    * Stop the bot.
-   * If there is an open trade, returns false and does NOT stop.
-   * The caller must close the open trade first (or force=true to override).
+   * First syncs openTrade against the DB — if the trade was closed externally
+   * (via Positions page or auto-close timer) the engine's stale reference is
+   * cleared before the open-trade guard runs.
    */
   async stop(force = false): Promise<{ ok: boolean; reason?: string }> {
+    // Sync stale openTrade reference against DB before checking
+    await this.syncOpenTrade()
+
     if (this.openTrade && !force) {
       return { ok: false, reason: 'open_trade' }
     }
@@ -447,76 +457,129 @@ class BotEngine {
     return { ok: true }
   }
 
+  // ── Public: clear a specific trade from engine state ────────────────────
+  // Called by the Positions page after manually closing a bot trade so the
+  // engine doesn't immediately re-open the same position before the next
+  // DB sync cycle runs.
+
+  clearTradeById(id: string) {
+    if (this.openTrade?.id === id) {
+      this.openTrade = null
+    }
+    this.trades = this.trades.map((t) =>
+      t.id === id ? { ...t, status: 'closed' } : t
+    )
+    this.notify()
+    // Re-open a new position if the bot is still running
+    if (this.state.running) {
+      setTimeout(() => this.openImmediatePosition(), 2000)
+    }
+  }
+
+  // ── Sync openTrade against DB ────────────────────────────────────────────
+  // Clears this.openTrade if the trade has been closed externally.
+
+  private async syncOpenTrade() {
+    if (!this.openTrade) return
+    try {
+      const trades = await get<BotTrade[]>(`/botTrades?userId=${this.userId}`)
+      const live = trades.find((t) => t.id === this.openTrade!.id)
+      if (!live || live.status === 'closed') {
+        // Trade was closed externally — clear the engine reference
+        this.openTrade = null
+        // Also sync the local trades array
+        this.trades = trades
+        this.notify()
+        // Re-open a new position if the bot is still running
+        if (this.state.running) {
+          setTimeout(() => this.openImmediatePosition(), 2000)
+        }
+      }
+    } catch {
+      // Non-critical — if the request fails, fall through to the force check
+    }
+  }
+
   async updateSettings(updates: Partial<AlgoState>) {
     this.state = { ...this.state, ...updates }
     await this.persistSettings()
     this.notify()
   }
 
-  // ── Force quick entry within 20 seconds ────────────────────────────────────
+  // ── Immediate position open ──────────────────────────────────────────────
+  // Called on start and on resume. Opens a position right away using the
+  // current market bias — no scanning loop, no threshold check.
+  // After this, the normal loop takes over and manages exits/re-entries.
 
-  private async forceQuickEntry() {
+  private async openImmediatePosition() {
     if (!this.state.running || this.openTrade) return
 
-    let attempts = 0
-    const maxAttempts = 4 // 4 attempts over 20 seconds
-    const attemptInterval = 5000 // 5 seconds between attempts
-
-    const tryEntry = async () => {
-      attempts++
-      this.scanStatus = `Quick scan ${attempts}/${maxAttempts} — finding entry point…`
-      
-      if (this.priceHistory.length >= 26) {
-        const sig = generateSignal(this.priceHistory, this.state.strategy, this.state.riskLevel)
-        this.signal = sig
-        
-        // Lower confidence threshold for quick entry (use current signal)
-        const quickThreshold = Math.max(35, this.state.confidenceThreshold - 15)
-        
-        if (sig.type !== 'HOLD' && sig.confidence >= quickThreshold) {
-          const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
-          this.scanStatus = `${sig.type} signal found — executing trade…`
-          await this.executeTrade(sig, price)
-          this.notify()
-          return true // Entry successful
-        }
-        
-        // If no good signal and this is the last attempt, force entry with current market conditions
-        if (attempts >= maxAttempts) {
-          const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
-          const forcedSignal: AlgoSignal = {
-            type: Math.random() > 0.5 ? 'BUY' : 'SELL',
-            reason: 'Market entry — algorithm timeout override',
-            confidence: 45,
-            indicators: sig.indicators,
-            timestamp: Date.now(),
-          }
-          this.signal = forcedSignal
-          this.scanStatus = `Timeout override — entering ${forcedSignal.type} position`
-          await this.executeTrade(forcedSignal, price)
-          this.notify()
-          return true
-        }
-      }
-      
-      this.notify()
-      return false
+    // Wait until we have enough price history
+    if (this.priceHistory.length < 26) {
+      // Retry once after 2s if price history isn't ready yet
+      setTimeout(() => this.openImmediatePosition(), 2000)
+      return
     }
 
-    // Try entry immediately
-    if (await tryEntry()) return
+    const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
+    const sig = generateSignal(this.priceHistory, this.state.strategy, this.state.riskLevel)
 
-    // Set up retry attempts every 5 seconds
-    const retryInterval = setInterval(async () => {
-      if (!this.state.running || this.openTrade || attempts >= maxAttempts) {
-        clearInterval(retryInterval)
-        return
-      }
-      
-      if (await tryEntry()) {
-        clearInterval(retryInterval)
-      }
-    }, attemptInterval)
+    // Use signal direction if available, otherwise fall back to EMA bias
+    const direction: 'BUY' | 'SELL' = sig.type !== 'HOLD'
+      ? sig.type
+      : (sig.indicators.ema9 >= sig.indicators.ema21 ? 'BUY' : 'SELL')
+
+    const entrySignal: AlgoSignal = {
+      ...sig,
+      type: direction,
+      reason: sig.type !== 'HOLD'
+        ? sig.reason
+        : `${this.state.strategy} — EMA bias entry (${direction === 'BUY' ? 'EMA9 > EMA21' : 'EMA9 < EMA21'})`,
+      confidence: Math.max(sig.confidence, this.state.confidenceThreshold),
+      timestamp: Date.now(),
+    }
+
+    this.signal = entrySignal
+    this.scanStatus = `Opening ${direction} position — ${this.state.strategy}`
+    this.notify()
+
+    await this.executeTrade(entrySignal, price)
+    this.notify()
+  }
+
+  // ── Manual force entry (public) ──────────────────────────────────────────
+  // Used by the "Force Entry" button in the UI. Same logic as openImmediatePosition
+  // but returns a result so the UI can show feedback.
+
+  async forceEntry(): Promise<{ ok: boolean; reason?: string }> {
+    if (!this.state.running) return { ok: false, reason: 'bot_not_running' }
+    if (this.openTrade) return { ok: false, reason: 'already_open' }
+    if (this.priceHistory.length < 26) return { ok: false, reason: 'insufficient_data' }
+
+    const price = this.currentPrice > 0 ? this.currentPrice : this.priceHistory[this.priceHistory.length - 1]
+    const sig = generateSignal(this.priceHistory, this.state.strategy, this.state.riskLevel)
+
+    const direction: 'BUY' | 'SELL' = sig.type !== 'HOLD'
+      ? sig.type
+      : (sig.indicators.ema9 >= sig.indicators.ema21 ? 'BUY' : 'SELL')
+
+    const entrySignal: AlgoSignal = {
+      ...sig,
+      type: direction,
+      reason: sig.type !== 'HOLD'
+        ? sig.reason
+        : `${this.state.strategy} — EMA bias entry (${direction === 'BUY' ? 'EMA9 > EMA21' : 'EMA9 < EMA21'})`,
+      confidence: Math.max(sig.confidence, this.state.confidenceThreshold),
+      timestamp: Date.now(),
+    }
+
+    this.signal = entrySignal
+    this.scanStatus = `Force entry — opening ${direction} position…`
+    this.notify()
+
+    await this.executeTrade(entrySignal, price)
+    this.notify()
+    return { ok: true }
   }
 
   // ── Internal loop ────────────────────────────────────────────────────────
@@ -545,13 +608,19 @@ class BotEngine {
 
       this.checkExitConditions(currentPrice)
 
-      // Generate signals more frequently - every tick instead of every 3rd tick
+      // Generate signal every tick; only attempt trade entry if confidence meets threshold
       if (!this.openTrade) {
         const newSignal = generateSignal(prices, this.state.strategy, this.state.riskLevel)
         this.signal = newSignal
+        const threshold = this.state.confidenceThreshold ?? 45
         if (newSignal.type !== 'HOLD') {
-          this.scanStatus = `${newSignal.type} signal — confidence ${newSignal.confidence.toFixed(0)}%`
-          this.executeTrade(newSignal, currentPrice)
+          const meetsThreshold = newSignal.confidence >= threshold
+          this.scanStatus = meetsThreshold
+            ? `${newSignal.type} signal — ${newSignal.confidence.toFixed(0)}% confidence — executing…`
+            : `${newSignal.type} signal — ${newSignal.confidence.toFixed(0)}% (below ${threshold}% threshold)`
+          if (meetsThreshold) {
+            this.executeTrade(newSignal, currentPrice)
+          }
         }
       }
 
@@ -571,12 +640,19 @@ class BotEngine {
         this.notify()
       }
     }, 2000) // Update every 2 seconds instead of 3
+
+    // Sync openTrade against DB every 10s to catch external closes
+    // (e.g. closed via Positions page, admin force-close, or auto-close timer)
+    this.syncIntervalId = setInterval(() => {
+      this.syncOpenTrade()
+    }, 10_000)
   }
 
   private stopLoop() {
     if (this.intervalId !== null) { clearInterval(this.intervalId); this.intervalId = null }
     if (this.elapsedId !== null) { clearInterval(this.elapsedId); this.elapsedId = null }
     if (this.pnlUpdateId !== null) { clearInterval(this.pnlUpdateId); this.pnlUpdateId = null }
+    if (this.syncIntervalId !== null) { clearInterval(this.syncIntervalId); this.syncIntervalId = null }
     if (this.pnlUpdateTimeout !== null) { clearTimeout(this.pnlUpdateTimeout); this.pnlUpdateTimeout = null }
   }
 
@@ -729,6 +805,12 @@ class BotEngine {
       : reason === 'stop-loss'
         ? `✗ Stop-loss triggered at ${exitPrice.toFixed(2)} — ${pnlPct.toFixed(2)}%`
         : `↺ Signal reversal — trade closed at ${exitPrice.toFixed(2)}`
+
+    // Re-open a new position shortly after close — same logic as on start/resume.
+    // This prevents the bot from getting stuck in a HOLD loop after a trade closes.
+    if (this.state.running) {
+      setTimeout(() => this.openImmediatePosition(), 2000)
+    }
   }
 
   private checkExitConditions(currentPrice: number) {

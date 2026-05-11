@@ -131,6 +131,10 @@ const BASE_STOCKS: StockQuote[] = [
   { symbol: 'TSLA', name: 'Tesla', price: 248.75, change: 8.25, changePct: 3.42, logo: '🚗', sparkline: [238, 241, 244, 243, 246, 248, 248.75] },
   { symbol: 'AMZN', name: 'Amazon', price: 187.35, change: -2.38, changePct: -1.25, logo: '📦', sparkline: [192, 191, 190, 189, 188, 187, 187.35] },
   { symbol: 'MSFT', name: 'Microsoft', price: 417.20, change: 6.82, changePct: 1.65, logo: '🪟', sparkline: [408, 410, 412, 413, 415, 416, 417.20] },
+  { symbol: 'GOOGL', name: 'Alphabet', price: 175.85, change: 2.15, changePct: 1.24, logo: '🔍', sparkline: [172, 173, 174, 174.5, 175, 175.5, 175.85] },
+  { symbol: 'META', name: 'Meta', price: 512.78, change: -8.42, changePct: -1.62, logo: '📘', sparkline: [525, 522, 518, 515, 513, 512, 512.78] },
+  { symbol: 'NVDA', name: 'NVIDIA', price: 875.30, change: 15.75, changePct: 1.83, logo: '🎮', sparkline: [850, 860, 865, 870, 872, 874, 875.30] },
+  { symbol: 'NFLX', name: 'Netflix', price: 645.22, change: -12.18, changePct: -1.85, logo: '🎬', sparkline: [665, 660, 655, 650, 648, 646, 645.22] },
 ]
 
 export function useStockQuotes() {

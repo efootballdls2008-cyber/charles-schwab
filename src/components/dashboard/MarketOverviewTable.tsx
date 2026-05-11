@@ -10,6 +10,10 @@ const STOCK_LOGOS: Record<string, string> = {
   TSLA: 'https://img.logo.dev/tesla.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
   AMZN: 'https://img.logo.dev/amazon.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
   MSFT: 'https://img.logo.dev/microsoft.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
+  GOOGL: 'https://img.logo.dev/google.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
+  META: 'https://img.logo.dev/meta.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
+  NVDA: 'https://img.logo.dev/nvidia.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
+  NFLX: 'https://img.logo.dev/netflix.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
 }
 
 const INDEX_LOGOS: Record<string, string> = {
@@ -17,6 +21,8 @@ const INDEX_LOGOS: Record<string, string> = {
   NDX: 'https://img.logo.dev/nasdaq.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
   DJI: 'https://img.logo.dev/dowjones.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
   RUT: 'https://img.logo.dev/ftserussell.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
+  VIX: 'https://img.logo.dev/cboe.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
+  UKX: 'https://img.logo.dev/londonstockexchange.com?token=pk_X-1ZO13GSgeOoUrIuJ6BeQ',
 }
 
 // ─── Convert number array → smooth SVG cubic-bezier path ─────────────────────
@@ -108,7 +114,7 @@ export default function MarketOverviewTable() {
 
   return (
     <motion.div
-      className="rounded-2xl p-5 flex flex-col"
+      className="rounded-2xl p-5 flex flex-col h-full"
       style={{
         background: 'rgba(13,8,36,0.95)',
         border: '1px solid rgba(255,255,255,0.08)',
@@ -220,7 +226,7 @@ export default function MarketOverviewTable() {
                       style={{ background: 'rgba(255,255,255,0.04)' }}
                     />
                   ))
-                : coins.slice(0, 5).map((coin, i) => {
+                : coins.slice(0, 8).map((coin, i) => {
                     const positive = coin.price_change_percentage_24h >= 0
                     const path = arrayToPath(coin.sparkline_in_7d?.price.slice(-20) ?? [])
                     return (
@@ -274,6 +280,8 @@ export default function MarketOverviewTable() {
                 { name: 'NASDAQ',       symbol: 'NDX', price: 18420.50, pct:  1.14, sparkline: [18100,18200,18150,18300,18250,18350,18320,18400,18390,18420] },
                 { name: 'Dow Jones',    symbol: 'DJI', price: 39127.80, pct: -0.32, sparkline: [39400,39350,39300,39280,39250,39200,39180,39160,39140,39127] },
                 { name: 'Russell 2000', symbol: 'RUT', price: 2048.60,  pct:  0.55, sparkline: [2020,2025,2030,2028,2035,2038,2040,2042,2046,2048] },
+                { name: 'VIX',          symbol: 'VIX', price: 14.25,    pct: -2.18, sparkline: [16.5,16.2,15.8,15.4,15.0,14.8,14.6,14.4,14.3,14.25] },
+                { name: 'FTSE 100',     symbol: 'UKX', price: 8156.30,  pct:  0.45, sparkline: [8120,8130,8140,8145,8150,8152,8154,8155,8156,8156.30] },
               ].map((idx, i) => {
                 const positive = idx.pct >= 0
                 const path = arrayToPath(idx.sparkline)

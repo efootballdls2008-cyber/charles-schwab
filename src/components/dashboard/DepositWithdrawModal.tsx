@@ -209,6 +209,9 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
   const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>([])
   const [selectedPlatformAccount, setSelectedPlatformAccount] = useState<PlatformAccount | null>(null)
   const [submittedTxId, setSubmittedTxId] = useState('')
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null)
+  const screenshotInputRef = useRef<HTMLInputElement>(null)
   const [limits, setLimits] = useState<PlatformLimits>({
     minDepositAmount: 10,
     maxDepositAmount: 1_000_000,
@@ -286,6 +289,24 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
   // All required recipient fields must be filled
   const recipientComplete = currentFields.every(f => (recipientDetails[f.key] ?? '').trim() !== '')
 
+  function handleScreenshotChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file (JPG, PNG, etc.)')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Screenshot must be under 5 MB')
+      return
+    }
+    setScreenshotFile(file)
+    setError('')
+    const reader = new FileReader()
+    reader.onload = ev => setScreenshotPreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
   function handleFormContinue() {
     if (!canProceed) return
     if (!isDeposit) {
@@ -301,7 +322,7 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
     setError('')
     try {
       const result = isDeposit
-        ? await createDeposit(user.id, numAmount, method, note)
+        ? await createDeposit(user.id, numAmount, method, note, screenshotPreview ?? undefined)
         : await createWithdraw(user.id, numAmount, method, note, recipientDetails)
 
       setSubmittedTxId(result.deposit.txId)
@@ -576,9 +597,96 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                   />
                 )}
 
-                {/* No account available warning — shown inline under the method grid
-                    so the user sees it immediately when they pick an unsupported method,
-                    rather than only discovering it when the Continue button is disabled */}
+                {/* Screenshot upload — deposit only */}
+                {isDeposit && selectedPlatformAccount && (
+                  <div>
+                    <label className="block text-xs font-medium mb-2" style={{ color: '#9ca3af' }}>
+                      Payment Screenshot
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(107,114,128,0.15)', color: '#9ca3af' }}>
+                        Optional
+                      </span>
+                    </label>
+
+                    {/* Hidden file input */}
+                    <input
+                      ref={screenshotInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleScreenshotChange}
+                    />
+
+                    {screenshotPreview ? (
+                      /* Preview */
+                      <div
+                        className="relative rounded-xl overflow-hidden"
+                        style={{ border: `1px solid ${accentBorder}` }}
+                      >
+                        <img
+                          src={screenshotPreview}
+                          alt="Payment screenshot"
+                          className="w-full object-cover max-h-40"
+                        />
+                        <div
+                          className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                          style={{ background: 'rgba(0,0,0,0.55)' }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => screenshotInputRef.current?.click()}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold mr-2"
+                            style={{ background: accentBg, color: accentColor, border: `1px solid ${accentBorder}` }}
+                          >
+                            <i className="fas fa-redo mr-1" />Change
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setScreenshotFile(null); setScreenshotPreview(null) }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}
+                          >
+                            <i className="fas fa-trash mr-1" />Remove
+                          </button>
+                        </div>
+                        <div
+                          className="flex items-center gap-2 px-3 py-2"
+                          style={{ background: 'rgba(0,0,0,0.5)' }}
+                        >
+                          <i className="fas fa-check-circle text-xs" style={{ color: accentColor }} />
+                          <span className="text-xs font-medium" style={{ color: accentColor }}>
+                            {screenshotFile?.name}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Drop zone */
+                      <button
+                        type="button"
+                        onClick={() => screenshotInputRef.current?.click()}
+                        className="w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl transition-all hover:opacity-80"
+                        style={{
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '2px dashed rgba(255,255,255,0.12)',
+                        }}
+                      >
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center"
+                          style={{ background: accentBg }}
+                        >
+                          <i className="fas fa-camera text-base" style={{ color: accentColor }} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-semibold text-white">Upload payment screenshot</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+                            JPG, PNG, WEBP · Max 5 MB
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* No account available warning */}
                 {isDeposit && !selectedPlatformAccount && numAmount > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: -6 }}
@@ -852,6 +960,25 @@ export default function DepositWithdrawModal({ mode, onClose, onSuccess }: Depos
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {/* Screenshot preview in confirm step */}
+                  {isDeposit && screenshotPreview && (
+                    <div
+                      className="pt-2 mt-1"
+                      style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+                    >
+                      <p className="text-xs font-semibold mb-2" style={{ color: accentColor }}>
+                        <i className="fas fa-image mr-1.5" />
+                        Payment Screenshot
+                      </p>
+                      <img
+                        src={screenshotPreview}
+                        alt="Payment screenshot"
+                        className="w-full rounded-lg object-cover max-h-32"
+                        style={{ border: `1px solid ${accentBorder}` }}
+                      />
+                    </div>
                   )}
 
                   {/* Pending notice */}

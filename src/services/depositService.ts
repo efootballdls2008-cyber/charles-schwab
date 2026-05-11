@@ -13,6 +13,7 @@ export interface Deposit {
   time: string
   txId: string
   note: string
+  screenshot?: string
 }
 
 export async function getDeposits(userId: number): Promise<Deposit[]> {
@@ -23,7 +24,8 @@ export async function createDeposit(
   userId: number,
   amount: number,
   method: string,
-  note: string = ''
+  note: string = '',
+  screenshot?: string
 ): Promise<{ deposit: Deposit; newBalance: number }> {
   // Get current user balance (unchanged until admin approves)
   const user = await get<{ balance: number }>(`/users/${userId}`)
@@ -41,6 +43,7 @@ export async function createDeposit(
     time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
     txId: `#DEP-${String(Date.now()).slice(-5)}`,
     note,
+    ...(screenshot ? { screenshot } : {}),
   }
 
   const created = await post<Deposit>(ENDPOINTS.depositsAll, deposit)

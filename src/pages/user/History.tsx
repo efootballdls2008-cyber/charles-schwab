@@ -169,6 +169,42 @@ function botTradeToHistory(t: BotTrade): TradeHistory {
   }
 }
 
+// ─── Stat card ────────────────────────────────────────────────────────────────
+function StatCard({
+  label, value, sub, color, icon, pulse,
+}: {
+  label: string
+  value: string
+  sub?: string
+  color: string
+  icon: string
+  pulse?: boolean
+}) {
+  return (
+    <div
+      className="rounded-2xl p-4 flex items-center gap-4"
+      style={{ background: 'rgba(22,15,53,0.9)', border: '1px solid rgba(255,255,255,0.07)' }}
+    >
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: `${color}18`, border: `1px solid ${color}30` }}
+      >
+        <i className={`${icon} text-sm`} style={{ color }} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-gray-500 truncate">{label}</p>
+        <p className="text-base font-bold text-white truncate">{value}</p>
+        {sub && (
+          <p className="text-xs mt-0.5 truncate" style={{ color }}>
+            {pulse && <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 animate-pulse align-middle" style={{ background: color }} />}
+            {sub}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 type TabKey = 'all' | 'bot' | 'user'
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -223,6 +259,27 @@ export default function History() {
 
   const totalPages = Math.max(1, Math.ceil(searched.length / PAGE_SIZE))
   const paginated = searched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  // ── Stats derived from ALL trades (not filtered) ──────────────────────────
+  const stats = useMemo(() => {
+    const closed = trades.filter((t) => t.status !== 'processing')
+    const totalTrades = closed.length
+    const wins   = closed.filter((t) => t.profitLoss > 0)
+    const losses = closed.filter((t) => t.profitLoss < 0)
+
+    const totalProfit = wins.reduce((s, t) => s + t.profitLoss, 0)
+    const totalLoss   = losses.reduce((s, t) => s + t.profitLoss, 0)
+    const netPnl      = totalProfit + totalLoss
+
+    const winRate = totalTrades > 0 ? (wins.length / totalTrades) * 100 : 0
+
+    const bestTrade  = closed.reduce<TradeHistory | null>((best, t) => (!best || t.profitLoss > best.profitLoss ? t : best), null)
+    const worstTrade = closed.reduce<TradeHistory | null>((worst, t) => (!worst || t.profitLoss < worst.profitLoss ? t : worst), null)
+
+    const activeTrades = trades.filter((t) => t.status === 'processing').length
+
+    return { totalTrades, wins: wins.length, losses: losses.length, totalProfit, totalLoss, netPnl, winRate, bestTrade, worstTrade, activeTrades }
+  }, [trades])
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'all',  label: 'All History' },
@@ -293,6 +350,53 @@ export default function History() {
                 Export
               </button>
             </div>
+          </div>
+
+          {/* ── Stats cards ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <StatCard
+              label="Total Profit"
+              icon="fas fa-arrow-trend-up"
+              color="#4ade80"
+              value={`+$${stats.totalProfit.toFixed(2)}`}
+              sub={`${stats.wins} winning trades`}
+            />
+            <StatCard
+              label="Total Loss"
+              icon="fas fa-arrow-trend-down"
+              color="#f87171"
+              value={`-$${Math.abs(stats.totalLoss).toFixed(2)}`}
+              sub={`${stats.losses} losing trades`}
+            />
+            <StatCard
+              label="Net P&L"
+              icon={stats.netPnl >= 0 ? 'fas fa-chart-line' : 'fas fa-chart-line'}
+              color={stats.netPnl >= 0 ? '#4ade80' : '#f87171'}
+              value={`${stats.netPnl >= 0 ? '+' : ''}$${stats.netPnl.toFixed(2)}`}
+              sub={stats.netPnl >= 0 ? 'Overall profit' : 'Overall loss'}
+            />
+            <StatCard
+              label="Win Rate"
+              icon="fas fa-bullseye"
+              color="#c9a84c"
+              value={`${stats.winRate.toFixed(1)}%`}
+              sub={`${stats.totalTrades} closed trades`}
+            />
+            <StatCard
+              label="Best Trade"
+              icon="fas fa-trophy"
+              color="#a78bfa"
+              value={stats.bestTrade ? `+$${stats.bestTrade.profitLoss.toFixed(2)}` : '—'}
+              sub={stats.bestTrade?.pair ?? 'No trades yet'}
+            />
+            <StatCard
+              label="Active Trades"
+              icon="fas fa-robot"
+              color="#60a5fa"
+              value={String(stats.activeTrades)}
+              sub="in progress"
+              pulse={stats.activeTrades > 0}
+            />
           </div>
 
           {/* ── Tabs ── */}

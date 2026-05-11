@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import { useLiveTicker } from '../../hooks/useLiveTicker'
 import { get, patch, put } from '../../api/client'
 import { ENDPOINTS } from '../../api/endpoints'
 import type { BotTrade } from '../../hooks/useAlgorithmEngine'
 import type { Holding } from '../../services/holdingService'
+import { botEngine } from '../../engine/botEngine'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import PositionDetailsModal from '../../components/dashboard/PositionDetailsModal'
 import type { PositionDetails } from '../../components/dashboard/PositionDetailsModal'
@@ -56,14 +56,31 @@ interface Position {
 
 // ─── Hidden ticker feed ───────────────────────────────────────────────────────
 
-/** Crypto feed — uses Binance WebSocket / REST */
+/** Crypto feed — polls the authenticated backend proxy every 3s */
 function CryptoTickerFeed({ base, onPrice }: { base: string; onPrice: (base: string, price: number) => void }) {
-  const ticker = useLiveTicker(base)
   const cbRef = useRef(onPrice)
   useEffect(() => { cbRef.current = onPrice }, [onPrice])
+
   useEffect(() => {
-    if (ticker?.price) cbRef.current(base, ticker.price)
-  }, [base, ticker?.price])
+    let cancelled = false
+
+    const poll = async () => {
+      try {
+        const d = await get<{
+          lastPrice: string; priceChange: string; priceChangePercent: string
+          highPrice: string; lowPrice: string; quoteVolume: string
+        }>(`/ticker/${base.toUpperCase()}USDT`)
+        if (!cancelled && d?.lastPrice) {
+          cbRef.current(base, parseFloat(d.lastPrice))
+        }
+      } catch { /* non-critical */ }
+    }
+
+    void poll()
+    const id = setInterval(poll, 3000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [base])
+
   return null
 }
 
@@ -161,28 +178,6 @@ function LivePriceCell({ price }: { price: number | null }) {
 }
 
 function PnlCell({ position, currentPrice }: { position: Position; currentPrice: number | null }) {
-  // For open bot trades: show fluctuating simulated P&L (not real calculated value)
-  const [simulatedPnl, setSimulatedPnl] = useState<number | null>(null)
-  const [simulatedPct, setSimulatedPct] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (position.source !== 'bot' || position.status !== 'open') return
-    // Start with a small random seed
-    const seed = (Math.random() - 0.5) * position.amount * (position.entryPrice * 0.002)
-    setSimulatedPnl(parseFloat(seed.toFixed(2)))
-    setSimulatedPct(parseFloat(((seed / (position.entryPrice * position.amount)) * 100).toFixed(2)))
-
-    const id = setInterval(() => {
-      setSimulatedPnl(prev => {
-        const drift = (Math.random() - 0.48) * position.amount * (position.entryPrice * 0.001)
-        const next = parseFloat(((prev ?? 0) + drift).toFixed(2))
-        setSimulatedPct(parseFloat(((next / (position.entryPrice * position.amount)) * 100).toFixed(2)))
-        return next
-      })
-    }, 2500)
-    return () => clearInterval(id)
-  }, [position.id, position.source, position.status, position.entryPrice, position.amount])
-
   // Closed bot trade: show final P&L
   if (position.source === 'bot' && position.status === 'closed') {
     const pnl = position.finalPnl ?? position.pnl ?? 0
@@ -201,25 +196,28 @@ function PnlCell({ position, currentPrice }: { position: Position; currentPrice:
     )
   }
 
-  // Open bot trade: show fluctuating simulated value
-  if (position.source === 'bot' && position.status === 'open') {
-    if (simulatedPnl === null) return <span className="text-xs text-gray-500 animate-pulse">calculating…</span>
-    const isProfit = simulatedPnl >= 0
-    const color = isProfit ? '#4ade80' : '#f87171'
-    return (
-      <div>
-        <p className="text-sm font-bold animate-pulse" style={{ color }}>
-          {isProfit ? '+' : ''}${Math.abs(simulatedPnl).toFixed(2)}
-        </p>
-        <p className="text-xs font-medium" style={{ color }}>
-          {isProfit ? '+' : ''}{Math.abs(simulatedPct ?? 0).toFixed(2)}%
-        </p>
-      </div>
-    )
+  // Open position (bot or manual): calculate from live price
+  if (!currentPrice) {
+    // While price is loading, show engine-stored value for bot trades
+    if (position.source === 'bot' && position.pnl !== undefined) {
+      const pnl = position.pnl
+      const pct = position.pnlPct ?? 0
+      const isProfit = pnl >= 0
+      const color = isProfit ? '#4ade80' : '#f87171'
+      return (
+        <div>
+          <p className="text-sm font-bold animate-pulse" style={{ color }}>
+            {isProfit ? '+' : ''}${Math.abs(pnl).toFixed(2)}
+          </p>
+          <p className="text-xs font-medium" style={{ color }}>
+            {isProfit ? '+' : ''}{Math.abs(pct).toFixed(2)}%
+          </p>
+        </div>
+      )
+    }
+    return <span className="text-xs text-gray-500 animate-pulse">calculating…</span>
   }
 
-  // Manual holdings: use real live price
-  if (!currentPrice) return <span className="text-xs text-gray-500">—</span>
   const pnl = position.side === 'buy'
     ? (currentPrice - position.entryPrice) * position.amount
     : (position.entryPrice - currentPrice) * position.amount
@@ -426,6 +424,42 @@ export default function Positions() {
     return () => clearInterval(id)
   }, [loadPositions])
 
+  // ── Sync live P&L from botEngine into bot positions ─────────────────────────
+  // The engine updates openTrade.pnl every 2s. We mirror that into our local
+  // positions state so the stat cards stay live without a full DB refresh.
+  // Also seed livePrices from the engine's current price immediately so
+  // P&L shows up before the first ticker poll completes.
+  useEffect(() => {
+    const unsub = botEngine.subscribe(() => {
+      const openTrade = botEngine.getOpenTrade()
+      const enginePrice = botEngine.getCurrentPrice()
+
+      // Seed livePrices from the engine immediately — no need to wait for ticker poll
+      if (enginePrice > 0) {
+        const base = openTrade
+          ? openTrade.pair.split('/')[0]
+          : botEngine.getState().pair.split('/')[0]
+        if (base) {
+          setLivePrices((prev) =>
+            prev[base] === enginePrice ? prev : { ...prev, [base]: enginePrice }
+          )
+        }
+      }
+
+      // Mirror engine pnl into the matching open position row
+      if (openTrade) {
+        setPositions((prev) =>
+          prev.map((p) =>
+            p.source === 'bot' && p.id === openTrade.id
+              ? { ...p, pnl: openTrade.pnl, pnlPct: openTrade.pnlPct }
+              : p
+          )
+        )
+      }
+    })
+    return () => { unsub() }
+  }, [])
+
   // ── Live price callback ─────────────────────────────────────────────────────
   const handlePrice = useCallback((base: string, price: number) => {
     setLivePrices((prev) => prev[base] === price ? prev : { ...prev, [base]: price })
@@ -454,7 +488,7 @@ export default function Positions() {
   // ── Close a position ────────────────────────────────────────────────────────
   const closePosition = useCallback(async (e: React.MouseEvent, pos: Position) => {
     e.stopPropagation()
-    if (closingId) return
+    if (closingId === pos.id) return
     setClosingId(pos.id)
     try {
       if (pos.source === 'bot') {
@@ -475,6 +509,11 @@ export default function Positions() {
           closedAt: new Date().toISOString(),
           closeReason: 'manual',
         })
+        // Immediately clear the trade from the engine so it doesn't re-open
+        // the position before the next DB sync cycle (every 10s)
+        botEngine.clearTradeById(pos.id)
+        // Optimistically remove from local state for instant UI feedback
+        setPositions((prev) => prev.filter((p) => p.id !== pos.id))
       } else {
         // For user holdings: id is "holding-<numericId>"
         const numericId = parseInt(pos.id.replace('holding-', ''), 10)
@@ -483,6 +522,8 @@ export default function Positions() {
         if (holding) {
           await put(ENDPOINTS.holdingById(numericId), { ...holding, quantity: 0 })
         }
+        // Optimistically remove from local state for instant UI feedback
+        setPositions((prev) => prev.filter((p) => p.id !== pos.id))
       }
       // Refresh positions after close
       await loadPositions()
@@ -505,10 +546,20 @@ export default function Positions() {
   let lossCount = 0
   for (const p of positions) {
     const cp = livePrices[p.base]
-    if (!cp) continue
-    const pnl = p.side === 'buy'
-      ? (cp - p.entryPrice) * p.amount
-      : (p.entryPrice - cp) * p.amount
+
+    let pnl: number
+    if (cp) {
+      // Always prefer live price calculation — works for both bot and manual
+      pnl = p.side === 'buy'
+        ? (cp - p.entryPrice) * p.amount
+        : (p.entryPrice - cp) * p.amount
+    } else if (p.source === 'bot' && p.pnl !== undefined) {
+      // Fall back to engine-stored value while live price is loading
+      pnl = p.pnl
+    } else {
+      continue // no price data yet, skip
+    }
+
     totalUnrealizedPnl += pnl
     if (pnl >= 0) profitCount++; else lossCount++
   }
