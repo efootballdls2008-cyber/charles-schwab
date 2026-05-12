@@ -7,6 +7,7 @@ import { ENDPOINTS } from '../../api/endpoints'
 import type { Deposit } from '../../services/depositService'
 import type { Purchase } from '../../services/holdingService'
 import type { BotTrade } from '../../engine/botEngine'
+import { useAuth } from '../../hooks/useAuth'
 
 interface RecentActivityProps {
   userId: number | undefined
@@ -62,13 +63,13 @@ function formatDeposit(d: Deposit): ActivityItem {
   }
 }
 
-function formatPurchase(p: Purchase): ActivityItem {
+function formatPurchase(p: Purchase, sym: string): ActivityItem {
   const isStock  = p.type === 'buy_stock'
   return {
     id:       `buy-${p.id}`,
     type:     p.type,
     title:    isStock ? 'Buy Stocks' : 'Buy Cryptocurrency',
-    subtitle: `${p.name} (${p.symbol}) · ${p.quantity} units @ $${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    subtitle: `${p.name} (${p.symbol}) · ${p.quantity} units @ ${sym}${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     amount:   p.totalCost,
     positive: false,
     time:     `${toDateLabel(p.date)}, ${p.time}`,
@@ -105,6 +106,8 @@ function formatBotTrade(t: BotTrade): ActivityItem {
 
 export default function RecentActivity({ userId }: RecentActivityProps) {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const sym = user?.currencySymbol ?? '$'
   const { deposits, loading: dLoading, error: dError } = useDeposits(userId)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [pLoading, setPLoading]   = useState(true)
@@ -134,7 +137,7 @@ export default function RecentActivity({ userId }: RecentActivityProps) {
 
   const activities: ActivityItem[] = [
     ...deposits.map(formatDeposit),
-    ...purchases.map(formatPurchase),
+    ...purchases.map(p => formatPurchase(p, sym)),
     ...botTrades.map(formatBotTrade),
   ]
     .sort((a, b) => b.sortKey - a.sortKey)
@@ -225,7 +228,7 @@ export default function RecentActivity({ userId }: RecentActivityProps) {
                     className="text-sm font-bold"
                     style={{ color: item.positive ? '#4ade80' : '#f87171' }}
                   >
-                    {item.positive ? '+' : '-'}${item.amount.toLocaleString('en-US', {
+                    {item.positive ? '+' : '-'}{sym}{item.amount.toLocaleString('en-US', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}

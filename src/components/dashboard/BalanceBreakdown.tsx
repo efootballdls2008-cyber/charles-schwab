@@ -15,9 +15,10 @@ interface BreakdownItem {
 interface CustomTooltipProps {
   active?: boolean
   payload?: { name: string; value: number; payload: BreakdownItem }[]
+  currencySymbol?: string
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, currencySymbol = '$' }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   const item = payload[0]
   return (
@@ -26,7 +27,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
       style={{ background: '#1e1b3a', border: '1px solid rgba(139,92,246,0.35)' }}
     >
       <p className="text-gray-400">{item.name}</p>
-      <p className="font-bold text-white mt-0.5">${item.payload.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+      <p className="font-bold text-white mt-0.5">{currencySymbol}{item.payload.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
       <p className="mt-0.5" style={{ color: '#a78bfa' }}>{item.value}%</p>
     </div>
   )
@@ -34,6 +35,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 
 export default function BalanceBreakdown() {
   const { user } = useAuth()
+  const sym = user?.currencySymbol ?? '$'
   const { holdings, loading: holdingsLoading } = useHoldings(user?.id)
   const { wallets, loading: walletsLoading } = useWallets(user?.id)
 
@@ -152,7 +154,7 @@ export default function BalanceBreakdown() {
                 <Cell key={entry.name} fill={entry.color} stroke="transparent" />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip currencySymbol={sym} />} />
           </PieChart>
         </ResponsiveContainer>
 
@@ -160,7 +162,7 @@ export default function BalanceBreakdown() {
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <p className="text-xs" style={{ color: '#9ca3af' }}>Total</p>
           <p className="text-lg font-bold text-white leading-tight">
-            ${total >= 1000 ? `${(total / 1000).toFixed(1)}K` : total.toFixed(0)}
+            {sym}{total >= 1000 ? `${(total / 1000).toFixed(1)}K` : total.toFixed(0)}
           </p>
         </div>
       </div>
@@ -184,7 +186,7 @@ export default function BalanceBreakdown() {
               <div className="flex items-center gap-3 flex-shrink-0">
                 <span className="text-xs font-semibold text-white">{item.value}%</span>
                 <span className="text-xs tabular-nums" style={{ color: '#6b7280' }}>
-                  ${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {sym}{item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

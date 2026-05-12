@@ -63,10 +63,10 @@ export function useLiveMarket(refreshMs = 60_000) {  // default raised to 60s (w
             symbol: 'BTC',
             name: 'Bitcoin',
             image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-            current_price: 67420.50,
+            current_price: 81680.00,
             price_change_percentage_24h: 2.34,
-            market_cap: 1330000000000,
-            sparkline_in_7d: { price: [65000, 66000, 67000, 67200, 67400, 67420, 67420.50] }
+            market_cap: 1620000000000,
+            sparkline_in_7d: { price: [79000, 80000, 80500, 81000, 81200, 81500, 81680] }
           },
           {
             id: 'ethereum',

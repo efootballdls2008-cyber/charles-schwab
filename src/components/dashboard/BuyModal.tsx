@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { buyAsset } from '../../services/holdingService'
 import { useAuth } from '../../hooks/useAuth'
 import { get } from '../../api/client'
+import { useExchangeRate, convertFromUSD } from '../../hooks/useExchangeRate'
 
 interface PlatformAccount {
   id: number
@@ -31,31 +32,79 @@ interface BuyModalProps {
   onSuccess?: (newBalance: number) => void
 }
 
-const fmt = (n: number, decimals = 2) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+const fmt = (n: number, currencySymbol = '$', decimals = 2) =>
+  `${currencySymbol}${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(n)
+  }).format(n)}`
 
 export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
   const { user } = useAuth()
+  const sym = user?.currencySymbol ?? '$'
+  const currencyCode = user?.currency ?? 'USD'
+
+  // Live exchange rate: USD → user's currency
+  const { rate, loading: rateLoading } = useExchangeRate(currencyCode)
+
+  // All prices are stored in USD — convert to local currency for display only
+  const localPrice   = convertFromUSD(asset.price, rate)
+  const localBalance = convertFromUSD(user?.balance ?? 0, rate)
+
   const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form')
   const [quantityStr, setQuantityStr] = useState('')
+  const [localAmountStr, setLocalAmountStr] = useState('')  // user's currency input
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [platformAccount, setPlatformAccount] = useState<PlatformAccount | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const localAmountRef = useRef<HTMLInputElement>(null)
 
   const balance = user?.balance ?? 0
   const quantity = parseFloat(quantityStr) || 0
-  const totalCost = quantity * asset.price
+  // totalCost stays in USD for backend submission; localTotalCost is for display
+  const totalCost      = quantity * asset.price
+  const localTotalCost = convertFromUSD(totalCost, rate)
   const maxQty = balance / asset.price
   const isPositive = asset.change24h >= 0
 
-  // Quick USD amounts → convert to quantity
+  // Quick amounts in local currency (equivalent of $100, $500, $1000, $5000 USD)
   const QUICK_USD = [100, 500, 1000, 5000]
+
+  // ── Sync: quantity → local amount (when user types in quantity field) ────────
+  const handleQuantityChange = (val: string) => {
+    setQuantityStr(val)
+    setError('')
+    const qty = parseFloat(val)
+    if (!isNaN(qty) && qty > 0 && rate > 0) {
+      const local = convertFromUSD(qty * asset.price, rate)
+      setLocalAmountStr(local.toFixed(2))
+    } else if (val === '' || val === '0') {
+      setLocalAmountStr('')
+    }
+  }
+
+  // ── Sync: local amount → quantity (when user types in local currency field) ──
+  const handleLocalAmountChange = (val: string) => {
+    setLocalAmountStr(val)
+    setError('')
+    const local = parseFloat(val)
+    if (!isNaN(local) && local > 0 && rate > 0 && asset.price > 0) {
+      const usdAmount = local / rate
+      const qty = usdAmount / asset.price
+      setQuantityStr(qty.toFixed(asset.type === 'crypto' ? 6 : 4))
+    } else if (val === '' || val === '0') {
+      setQuantityStr('')
+    }
+  }
+
+  // ── Quick buy: set both fields from a USD preset ─────────────────────────────
+  const handleQuickBuy = (usdAmount: number) => {
+    const qty = usdAmount / asset.price
+    const local = convertFromUSD(usdAmount, rate)
+    setQuantityStr(qty.toFixed(asset.type === 'crypto' ? 6 : 4))
+    setLocalAmountStr(local.toFixed(2))
+    setError('')
+  }
 
   // Fetch the platform account assigned for this asset type
   const loadPlatformAccount = useCallback(async () => {
@@ -75,7 +124,7 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
   const quantityError = (() => {
     if (quantity <= 0) return ''
     if (totalCost > balance) return 'Insufficient balance'
-    if (totalCost < 1) return 'Minimum order is $1.00'
+    if (totalCost < 1) return `Minimum order is ${sym}${convertFromUSD(1, rate).toFixed(2)}`
     return ''
   })()
 
@@ -193,64 +242,129 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                   >
                     <p className="text-xs mb-1" style={{ color: '#9ca3af' }}>Current Price</p>
-                    <p className="text-sm font-bold text-white">{fmt(asset.price)}</p>
+                    <p className="text-sm font-bold text-white">
+                      {rateLoading ? '…' : fmt(localPrice, sym)}
+                    </p>
+                    {currencyCode !== 'USD' && (
+                      <p className="text-xs mt-0.5" style={{ color: '#4b5563' }}>
+                        ${asset.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      </p>
+                    )}
                   </div>
                   <div
                     className="rounded-xl px-4 py-3"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                   >
                     <p className="text-xs mb-1" style={{ color: '#9ca3af' }}>Available</p>
-                    <p className="text-sm font-bold text-white">{fmt(balance, 0)}</p>
+                    <p className="text-sm font-bold text-white">
+                      {rateLoading ? '…' : fmt(localBalance, sym, 0)}
+                    </p>
                   </div>
                 </div>
 
-                {/* Quantity input */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium" style={{ color: '#9ca3af' }}>
-                      Quantity ({asset.symbol})
-                    </label>
+                {/* Quantity + Local Amount dual inputs */}
+                <div className="space-y-3">
+                  {/* Row label */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium" style={{ color: '#9ca3af' }}>
+                      Enter amount to buy
+                    </span>
                     <button
-                      onClick={() => setQuantityStr(maxQty.toFixed(asset.type === 'crypto' ? 6 : 4))}
+                      onClick={() => {
+                        const maxLocal = convertFromUSD(maxQty * asset.price, rate)
+                        setQuantityStr(maxQty.toFixed(asset.type === 'crypto' ? 6 : 4))
+                        setLocalAmountStr(maxLocal.toFixed(2))
+                      }}
                       className="text-xs font-semibold px-2 py-0.5 rounded-md transition-all hover:opacity-80"
                       style={{ background: accentBg, color: accentColor, border: `1px solid ${accentBorder}` }}
                     >
                       Max
                     </button>
                   </div>
-                  <input
-                    ref={inputRef}
-                    type="number"
-                    min="0"
-                    step={asset.type === 'crypto' ? '0.000001' : '0.0001'}
-                    placeholder={asset.type === 'crypto' ? '0.000000' : '0.0000'}
-                    value={quantityStr}
-                    onChange={(e) => { setQuantityStr(e.target.value); setError('') }}
-                    className="w-full px-4 py-3.5 rounded-xl text-xl font-bold text-white outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${quantityError ? '#f87171' : 'rgba(255,255,255,0.1)'}`,
-                    }}
-                  />
+
+                  {/* Local currency amount input */}
+                  <div>
+                    <label className="block text-xs mb-1.5" style={{ color: '#6b7280' }}>
+                      Amount ({currencyCode})
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold select-none"
+                        style={{ color: '#6b7280' }}
+                      >
+                        {sym}
+                      </span>
+                      <input
+                        ref={localAmountRef}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={localAmountStr}
+                        onChange={(e) => handleLocalAmountChange(e.target.value)}
+                        className="w-full pl-8 pr-4 py-3 rounded-xl text-lg font-bold text-white outline-none transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${quantityError ? '#f87171' : accentBorder}`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Divider with swap icon */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      <i className="fas fa-arrows-up-down text-xs" style={{ color: '#6b7280' }} />
+                    </div>
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                  </div>
+
+                  {/* Quantity input */}
+                  <div>
+                    <label className="block text-xs mb-1.5" style={{ color: '#6b7280' }}>
+                      Quantity ({asset.symbol})
+                    </label>
+                    <input
+                      ref={inputRef}
+                      type="number"
+                      min="0"
+                      step={asset.type === 'crypto' ? '0.000001' : '0.0001'}
+                      placeholder={asset.type === 'crypto' ? '0.000000' : '0.0000'}
+                      value={quantityStr}
+                      onChange={(e) => handleQuantityChange(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl text-lg font-bold text-white outline-none transition-all"
+                      style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${quantityError ? '#f87171' : 'rgba(255,255,255,0.1)'}`,
+                      }}
+                    />
+                  </div>
+
                   {quantityError && (
-                    <p className="mt-1.5 text-xs" style={{ color: '#f87171' }}>
+                    <p className="text-xs" style={{ color: '#f87171' }}>
                       <i className="fas fa-exclamation-circle mr-1" />
                       {quantityError}
                     </p>
                   )}
                 </div>
 
-                {/* Quick USD amounts */}
+                {/* Quick amounts */}
                 <div>
-                  <p className="text-xs mb-2" style={{ color: '#6b7280' }}>Quick buy (USD)</p>
+                  <p className="text-xs mb-2" style={{ color: '#6b7280' }}>
+                    Quick buy ({currencyCode})
+                  </p>
                   <div className="flex gap-2">
                     {QUICK_USD.map((usd) => {
-                      const qty = usd / asset.price
+                      const localAmt = convertFromUSD(usd, rate)
                       const active = Math.abs(quantity * asset.price - usd) < 0.01
                       return (
                         <button
                           key={usd}
-                          onClick={() => setQuantityStr(qty.toFixed(asset.type === 'crypto' ? 6 : 4))}
+                          onClick={() => handleQuickBuy(usd)}
                           className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
                           style={{
                             background: active ? accentBg : 'rgba(255,255,255,0.05)',
@@ -258,7 +372,7 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
                             border: `1px solid ${active ? accentBorder : 'rgba(255,255,255,0.08)'}`,
                           }}
                         >
-                          ${usd >= 1000 ? `${usd / 1000}k` : usd}
+                          {sym}{localAmt >= 1000 ? `${(localAmt / 1000).toFixed(0)}k` : localAmt.toFixed(0)}
                         </button>
                       )
                     })}
@@ -274,9 +388,16 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
                     style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
                   >
                     <span className="text-xs" style={{ color: '#9ca3af' }}>Total Cost</span>
-                    <span className="text-base font-bold" style={{ color: accentColor }}>
-                      {fmt(totalCost)}
-                    </span>
+                    <div className="text-right">
+                      <span className="text-base font-bold" style={{ color: accentColor }}>
+                        {fmt(localTotalCost, sym)}
+                      </span>
+                      {currencyCode !== 'USD' && (
+                        <p className="text-xs" style={{ color: '#4b5563' }}>
+                          ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                        </p>
+                      )}
+                    </div>
                   </motion.div>
                 )}
 
@@ -318,9 +439,9 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
                     { label: 'Asset',       value: `${asset.name} (${asset.symbol})` },
                     { label: 'Type',        value: asset.type === 'crypto' ? 'Cryptocurrency' : 'Stock' },
                     { label: 'Quantity',    value: `${quantity} ${asset.symbol}` },
-                    { label: 'Price',       value: fmt(asset.price) },
-                    { label: 'Total Cost',  value: fmt(totalCost), highlight: true },
-                    { label: 'New Balance', value: fmt(balance - totalCost), highlight: true },
+                    { label: 'Price',       value: fmt(localPrice, sym) },
+                    { label: 'Total Cost',  value: fmt(localTotalCost, sym), highlight: true },
+                    { label: 'New Balance', value: fmt(convertFromUSD(balance - totalCost, rate), sym), highlight: true },
                   ].map((row) => (
                     <div key={row.label} className="flex items-center justify-between">
                       <span className="text-xs" style={{ color: '#9ca3af' }}>{row.label}</span>
@@ -387,7 +508,7 @@ export default function BuyModal({ asset, onClose, onSuccess }: BuyModalProps) {
                     Your order for{' '}
                     <span className="font-semibold text-white">{quantity} {asset.symbol}</span>{' '}
                     worth{' '}
-                    <span className="font-semibold" style={{ color: accentColor }}>{fmt(totalCost)}</span>{' '}
+                    <span className="font-semibold" style={{ color: accentColor }}>{fmt(localTotalCost, sym)}</span>{' '}
                     is pending admin approval.
                   </p>
                 </div>

@@ -17,18 +17,40 @@ export const DEFAULT_CRYPTO: BuyAsset = {
   symbol: 'BTC',
   name: 'Bitcoin',
   color: '#f7931a',
-  price: 67420.00,
+  price: 81680.00,
   change24h: 3.10,
+}
+
+export const DEFAULT_ETH: BuyAsset = {
+  type: 'crypto',
+  symbol: 'ETH',
+  name: 'Ethereum',
+  color: '#627eea',
+  price: 3245.00,
+  change24h: 1.87,
+}
+
+export const DEFAULT_BNB: BuyAsset = {
+  type: 'crypto',
+  symbol: 'BNB',
+  name: 'BNB',
+  color: '#f3ba2f',
+  price: 608.00,
+  change24h: 0.55,
 }
 
 interface QuickActionsProps {
   onBuyStock?: () => void
   onBuyCrypto?: () => void
+  onBuyEth?: () => void
+  onBuyBnb?: () => void
 }
 
 export default function QuickActions({
   onBuyStock,
   onBuyCrypto,
+  onBuyEth,
+  onBuyBnb,
 }: QuickActionsProps) {
   const navigate = useNavigate()
 
@@ -47,13 +69,35 @@ export default function QuickActions({
     {
       icon: 'fab fa-bitcoin',
       title: 'Buy Crypto',
-      subtitle: 'Buy and hold crypto',
+      subtitle: 'Buy and hold Bitcoin',
       gradient: 'linear-gradient(135deg, #2d1500 0%, #1e0e00 100%)',
       border: 'rgba(245,158,11,0.25)',
       iconBg: 'rgba(245,158,11,0.18)',
       iconColor: '#f59e0b',
       arrowColor: '#f59e0b',
       onClick: onBuyCrypto ?? (() => navigate('/user/crypto')),
+    },
+    {
+      icon: 'fas fa-gem',
+      title: 'Buy Ethereum',
+      subtitle: 'ETH · Smart contract leader',
+      gradient: 'linear-gradient(135deg, #0f1a3d 0%, #0a1228 100%)',
+      border: 'rgba(98,126,234,0.25)',
+      iconBg: 'rgba(98,126,234,0.18)',
+      iconColor: '#627eea',
+      arrowColor: '#627eea',
+      onClick: onBuyEth ?? (() => navigate('/user/crypto')),
+    },
+    {
+      icon: 'fas fa-coins',
+      title: 'Buy BNB',
+      subtitle: 'BNB · Binance ecosystem',
+      gradient: 'linear-gradient(135deg, #2a1f00 0%, #1c1500 100%)',
+      border: 'rgba(243,186,47,0.25)',
+      iconBg: 'rgba(243,186,47,0.18)',
+      iconColor: '#f3ba2f',
+      arrowColor: '#f3ba2f',
+      onClick: onBuyBnb ?? (() => navigate('/user/crypto')),
     },
   ]
 
