@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import BalanceCard from '../../components/dashboard/BalanceCard'
-import QuickActions, { DEFAULT_STOCK, DEFAULT_CRYPTO } from '../../components/dashboard/QuickActions'
+import QuickActions, { DEFAULT_STOCK, DEFAULT_CRYPTO, DEFAULT_ETH, DEFAULT_BNB } from '../../components/dashboard/QuickActions'
 import ProfitOverviewChart from '../../components/dashboard/ProfitOverviewChart'
+import ProfitLineChart from '../../components/dashboard/ProfitLineChart'
 import AlgoBotPanel from '../../components/dashboard/AlgoBotPanel'
 import MarketOverviewTable from '../../components/dashboard/MarketOverviewTable'
 import RecentActivity from '../../components/dashboard/RecentActivity'
@@ -346,14 +347,17 @@ export default function Dashboard() {
                     <QuickActions
                       onBuyStock={() => setBuyAsset(DEFAULT_STOCK)}
                       onBuyCrypto={() => setBuyAsset(DEFAULT_CRYPTO)}
+                      onBuyEth={() => setBuyAsset(DEFAULT_ETH)}
+                      onBuyBnb={() => setBuyAsset(DEFAULT_BNB)}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Right: Profit Overview — spans 2 cols on md+ */}
-              <div className="md:col-span-2">
+              {/* Right: Profit Overview + Line Chart stacked — spans 2 cols on md+ */}
+              <div className="md:col-span-2 flex flex-col gap-4">
                 <ProfitOverviewChart />
+                <ProfitLineChart />
               </div>
             </motion.div>
 

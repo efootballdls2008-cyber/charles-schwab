@@ -74,7 +74,7 @@ const CRYPTO_DATA: CryptoRow[] = [
   },
   {
     id: 6, rank: 6, name: 'Bitcoin', symbol: 'BTC', color: '#f7931a',
-    lastPrice: 11900.48, change24h: -2.40, volume24h: 220083007600,
+    lastPrice: 81680.00, change24h: -2.40, volume24h: 220083007600,
     sparkline: 'M0,22 C5,20 8,15 14,14 C20,13 22,18 28,16 C34,14 36,8 42,9 C48,10 50,18 56,15 C62,12 64,7 70,8 C74,9 77,12 80,10',
   },
   {
@@ -89,7 +89,7 @@ const CRYPTO_DATA: CryptoRow[] = [
   },
   {
     id: 9, rank: 9, name: 'Bitcoin', symbol: 'BTC', color: '#f7931a',
-    lastPrice: 11911.48, change24h: -2.54, volume24h: 220083017631,
+    lastPrice: 81680.00, change24h: -2.54, volume24h: 220083017631,
     sparkline: 'M0,22 C5,20 8,15 14,14 C20,13 22,18 28,16 C34,14 36,8 42,9 C48,10 50,18 56,15 C62,12 64,7 70,8 C74,9 77,12 80,10',
   },
   {
@@ -104,7 +104,7 @@ const CRYPTO_DATA: CryptoRow[] = [
   },
   {
     id: 12, rank: 12, name: 'Bitcoin', symbol: 'BTC', color: '#f7931a',
-    lastPrice: 67420.00, change24h: 3.10, volume24h: 310000007000,
+    lastPrice: 81680.00, change24h: 3.10, volume24h: 310000007000,
     sparkline: 'M0,22 C5,20 8,15 14,14 C20,13 22,18 28,16 C34,14 36,8 42,9 C48,10 50,18 56,15 C62,12 64,7 70,8 C74,9 77,12 80,10',
   },
 ]

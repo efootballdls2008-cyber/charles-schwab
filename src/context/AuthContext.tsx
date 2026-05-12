@@ -101,7 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               prev.firstName     !== fresh.firstName     ||
               prev.lastName      !== fresh.lastName      ||
               prev.avatar        !== fresh.avatar        ||
-              prev.email         !== fresh.email
+              prev.email         !== fresh.email         ||
+              prev.currency      !== fresh.currency
             if (!changed) return prev
             const updated = { ...prev, ...fresh }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))

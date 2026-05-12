@@ -1,4 +1,5 @@
 import { get, post } from '../api/client'
+import { getCurrencySymbol } from '../utils/currency'
 
 export interface User {
   id: number
@@ -9,6 +10,7 @@ export interface User {
   avatar: string | null
   balance: number
   currency: string
+  currencySymbol: string
   phone?: string
   dateOfBirth?: string
   country?: string
@@ -82,6 +84,7 @@ export async function fetchUser(): Promise<User | null> {
       avatar: data.avatar,
       balance: data.balance,
       currency: data.currency,
+      currencySymbol: getCurrencySymbol(data.currency),
       phone: data.phone,
       dateOfBirth: data.dateOfBirth,
       country: data.country,
@@ -143,6 +146,7 @@ export interface RegisterPayload {
   email: string
   phone: string
   country: string
+  currency: string
   password: string
   confirmPassword: string
 }
@@ -157,8 +161,7 @@ export async function register(payload: RegisterPayload): Promise<User | null> {
   try {
     // Remove username from payload since backend doesn't support it yet
     const { username, ...registrationData } = payload
-    response = await post<RegisterResponse>('/auth/register', registrationData)
-  } catch (err) {
+    response = await post<RegisterResponse>('/auth/register', registrationData)  } catch (err) {
     const status  = (err as { status?: number }).status
     const body    = (err as { body?: { field?: string; message?: string } }).body
     const message = err instanceof Error ? err.message : ''

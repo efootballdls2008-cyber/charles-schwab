@@ -7,6 +7,7 @@ interface WalletCardProps {
   change30d: number
   color: string
   sparklinePath: string
+  currencySymbol?: string
 }
 
 export default function WalletCard({
@@ -16,16 +17,15 @@ export default function WalletCard({
   change30d,
   color,
   sparklinePath,
+  currencySymbol = '$',
 }: WalletCardProps) {
   const isGreen = color === '#4ade80'
   const sparklineColor = isGreen ? '#4ade80' : color
 
-  const formattedValue = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  const formattedValue = `${currencySymbol}${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(valueUsd)
+  }).format(valueUsd)}`
 
   return (
     <motion.div

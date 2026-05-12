@@ -41,7 +41,7 @@ interface MarketRow {
 }
 
 const CRYPTO_ROWS: MarketRow[] = [
-  { id: 1,  rank: 1,  name: 'Bitcoin',       symbol: 'BTC',  color: '#f7931a', price: 67420.00, change24h: 3.10,  volume24h: 31000000000, marketCap: 1320000000000, sparkline: 'M0,22 C5,18 10,14 16,15 C22,16 26,20 32,18 C38,16 42,10 48,11 C54,12 58,18 64,15 C70,12 74,8 80,9',  assetType: 'crypto' },
+  { id: 1,  rank: 1,  name: 'Bitcoin',       symbol: 'BTC',  color: '#f7931a', price: 81680.00, change24h: 3.10,  volume24h: 31000000000, marketCap: 1320000000000, sparkline: 'M0,22 C5,18 10,14 16,15 C22,16 26,20 32,18 C38,16 42,10 48,11 C54,12 58,18 64,15 C70,12 74,8 80,9',  assetType: 'crypto' },
   { id: 2,  rank: 2,  name: 'Ethereum',      symbol: 'ETH',  color: '#627eea', price: 2873.00,  change24h: 1.80,  volume24h: 14000000000, marketCap: 345000000000,  sparkline: 'M0,18 C6,16 10,20 16,18 C22,16 26,12 32,13 C38,14 42,20 48,18 C54,16 58,10 64,12 C70,14 74,18 80,16', assetType: 'crypto' },
   { id: 3,  rank: 3,  name: 'Solana',        symbol: 'SOL',  color: '#9945ff', price: 137.80,   change24h: 6.00,  volume24h: 3200000000,  marketCap: 62000000000,   sparkline: 'M0,24 C6,22 10,16 16,15 C22,14 26,20 32,18 C38,16 42,10 48,11 C54,12 58,20 64,17 C70,14 74,8 80,9',  assetType: 'crypto' },
   { id: 4,  rank: 4,  name: 'BNB',           symbol: 'BNB',  color: '#f3ba2f', price: 649.00,   change24h: 2.40,  volume24h: 1800000000,  marketCap: 94000000000,   sparkline: 'M0,20 C4,18 8,22 14,20 C20,18 24,14 30,15 C36,16 40,22 46,20 C52,18 56,12 62,14 C68,16 72,20 80,18', assetType: 'crypto' },

@@ -21,7 +21,7 @@ const STYLE_MAP: Record<ActivityStyle, { color: string; bg: string; border: stri
 
 // ─── Anchor (Profit this month) ───────────────────────────────────────────────
 
-function buildAnchor(pnl: number, pct: number): ActivityItem {
+function buildAnchor(pnl: number, pct: number, currencySymbol: string): ActivityItem {
   const pos = pnl >= 0
   return {
     id: '__anchor__',
@@ -29,7 +29,7 @@ function buildAnchor(pnl: number, pct: number): ActivityItem {
     icon: pos ? 'fas fa-arrow-trend-up' : 'fas fa-arrow-trend-down',
     label: 'Profit this month',
     amount: pnl,
-    amountLabel: `${pos ? '+' : ''}$${Math.abs(pnl).toLocaleString('en-US', {
+    amountLabel: `${pos ? '+' : ''}${currencySymbol}${Math.abs(pnl).toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })} (${pos ? '+' : ''}${Math.abs(pct).toFixed(2)}%)`,
@@ -66,13 +66,15 @@ function BalanceSubline({
   monthlyPnlPct,
   flashEvent,
   dismissFlash,
+  currencySymbol,
 }: {
   monthlyPnl: number
   monthlyPnlPct: number
   flashEvent: ActivityItem | null
   dismissFlash: () => void
+  currencySymbol: string
 }) {
-  const anchor = buildAnchor(monthlyPnl, monthlyPnlPct)
+  const anchor = buildAnchor(monthlyPnl, monthlyPnlPct, currencySymbol)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // When a flash event arrives, auto-dismiss after 4s
@@ -131,13 +133,14 @@ function BalanceSubline({
 
 export default function BalanceCard({ user }: BalanceCardProps) {
   const balance = user?.balance ?? 0
+  const currencySymbol = user?.currencySymbol ?? '$'
 
   const { monthlyPnl, monthlyPnlPct, flashEvent, dismissFlash } =
     useBalanceActivity(user?.id, balance)
 
   const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: user?.currency || 'USD',
     minimumFractionDigits: 2,
   }).format(balance)
 
@@ -220,6 +223,7 @@ export default function BalanceCard({ user }: BalanceCardProps) {
           monthlyPnlPct={monthlyPnlPct}
           flashEvent={flashEvent}
           dismissFlash={dismissFlash}
+          currencySymbol={currencySymbol}
         />
       </div>
 

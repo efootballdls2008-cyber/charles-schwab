@@ -1,4 +1,5 @@
 import type { Order } from '../../services/orderService'
+import { useAuth } from '../../hooks/useAuth'
 
 interface OrderTableProps {
   type: 'sell' | 'buy'
@@ -9,6 +10,8 @@ interface OrderTableProps {
 
 export default function OrderTable({ type, orders, title, loading = false }: OrderTableProps) {
   const isBuy = type === 'buy'
+  const { user } = useAuth()
+  const sym = user?.currencySymbol ?? '$'
 
   return (
     <div
@@ -84,10 +87,10 @@ export default function OrderTable({ type, orders, title, loading = false }: Ord
                   style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                 >
                   <td className="py-2 font-medium" style={{ color: isBuy ? '#4ade80' : '#f87171' }}>
-                    ${order.price.toFixed(2)}
+                    {sym}{order.price.toFixed(2)}
                   </td>
                   <td className="py-2 text-right text-gray-300">{order.amount}</td>
-                  <td className="py-2 text-right text-gray-300">${order.total.toFixed(2)}</td>
+                  <td className="py-2 text-right text-gray-300">{sym}{order.total.toFixed(2)}</td>
                 </tr>
               ))
             )}
