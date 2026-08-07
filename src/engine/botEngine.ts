@@ -161,7 +161,7 @@ function generateSignal(prices: number[], strategy: StrategyName, riskLevel: Ris
   const riskMult = riskLevel === 'Conservative' ? 0.7 : riskLevel === 'Aggressive' ? 1.3 : 1.0
 
   let type: SignalType = 'HOLD'
-  let reason = 'No clear signal — holding position'
+  let reason = 'No clear setup — staying on the sidelines'
   let confidence = 40
 
   switch (strategy) {
@@ -172,10 +172,10 @@ function generateSignal(prices: number[], strategy: StrategyName, riskLevel: Ris
       const macdBearish = macd < macdSignal
       const emaBullish = ema9 > ema21
       const emaBearish = ema9 < ema21
-      if (rsiBuy && macdBullish && emaBullish) { type = 'BUY'; reason = `RSI oversold (${rsi.toFixed(1)}) + MACD bullish crossover + EMA9 > EMA21`; confidence = 82 + Math.random() * 12 }
-      else if (rsiSell && macdBearish && emaBearish) { type = 'SELL'; reason = `RSI overbought (${rsi.toFixed(1)}) + MACD bearish crossover + EMA9 < EMA21`; confidence = 78 + Math.random() * 14 }
-      else if (rsiBuy && macdBullish) { type = 'BUY'; reason = `RSI oversold (${rsi.toFixed(1)}) + MACD bullish — partial signal`; confidence = 62 + Math.random() * 10 }
-      else if (rsiSell && macdBearish) { type = 'SELL'; reason = `RSI overbought (${rsi.toFixed(1)}) + MACD bearish — partial signal`; confidence = 60 + Math.random() * 10 }
+      if (rsiBuy && macdBullish && emaBullish) { type = 'BUY'; reason = 'Quick scalp: sellers exhausted after pullback — buyers stepping in, short-term trend turning up'; confidence = 82 + Math.random() * 12 }
+      else if (rsiSell && macdBearish && emaBearish) { type = 'SELL'; reason = 'Taking profit on the short side — price stretched, momentum fading and trend rolling over'; confidence = 78 + Math.random() * 14 }
+      else if (rsiBuy && macdBullish) { type = 'BUY'; reason = 'Early long entry — dip looks attractive and buying pressure is building'; confidence = 62 + Math.random() * 10 }
+      else if (rsiSell && macdBearish) { type = 'SELL'; reason = 'Early exit signal — rally losing steam, good spot to reduce exposure'; confidence = 60 + Math.random() * 10 }
       break
     }
     case 'Trend Follower': {
@@ -183,10 +183,10 @@ function generateSignal(prices: number[], strategy: StrategyName, riskLevel: Ris
       const strongBear = ema9 < ema21 && price < ema9 && macd < 0
       const weakBull = ema9 > ema21 && price > ema21
       const weakBear = ema9 < ema21 && price < ema21
-      if (strongBull) { type = 'BUY'; reason = `Strong uptrend: EMA9 > EMA21, price above both, MACD positive`; confidence = 85 + Math.random() * 10 }
-      else if (strongBear) { type = 'SELL'; reason = `Strong downtrend: EMA9 < EMA21, price below both, MACD negative`; confidence = 83 + Math.random() * 10 }
-      else if (weakBull) { type = 'BUY'; reason = `Uptrend forming: EMA9 > EMA21, price above EMA21`; confidence = 60 + Math.random() * 15 }
-      else if (weakBear) { type = 'SELL'; reason = `Downtrend forming: EMA9 < EMA21, price below EMA21`; confidence = 58 + Math.random() * 15 }
+      if (strongBull) { type = 'BUY'; reason = 'Strong uptrend in play — price holding above rising support, riding the move higher'; confidence = 85 + Math.random() * 10 }
+      else if (strongBear) { type = 'SELL'; reason = 'Clear downtrend — price breaking down, exiting before further weakness'; confidence = 83 + Math.random() * 10 }
+      else if (weakBull) { type = 'BUY'; reason = 'Uptrend forming — momentum shifting bullish, entering with the emerging trend'; confidence = 60 + Math.random() * 15 }
+      else if (weakBear) { type = 'SELL'; reason = 'Downtrend forming — sellers in control, stepping aside on the long side'; confidence = 58 + Math.random() * 15 }
       break
     }
     case 'Mean Reversion': {
@@ -194,24 +194,24 @@ function generateSignal(prices: number[], strategy: StrategyName, riskLevel: Ris
       const nearUpper = price >= bb.upper * 0.995
       const midBull = price < bb.mid && rsi < 50
       const midBear = price > bb.mid && rsi > 50
-      if (nearLower && rsi < 40) { type = 'BUY'; reason = `Price at lower Bollinger Band (${bb.lower.toFixed(0)}) + RSI ${rsi.toFixed(1)} — mean reversion buy`; confidence = 80 + Math.random() * 12 }
-      else if (nearUpper && rsi > 60) { type = 'SELL'; reason = `Price at upper Bollinger Band (${bb.upper.toFixed(0)}) + RSI ${rsi.toFixed(1)} — mean reversion sell`; confidence = 78 + Math.random() * 12 }
-      else if (midBull) { type = 'BUY'; reason = `Price below BB midline, RSI < 50 — mild reversion signal`; confidence = 55 + Math.random() * 15 }
-      else if (midBear) { type = 'SELL'; reason = `Price above BB midline, RSI > 50 — mild reversion signal`; confidence = 53 + Math.random() * 15 }
+      if (nearLower && rsi < 40) { type = 'BUY'; reason = 'Pullback to support — price at the low end of the range, expecting a bounce back toward fair value'; confidence = 80 + Math.random() * 12 }
+      else if (nearUpper && rsi > 60) { type = 'SELL'; reason = 'Price extended above fair value — banking gains before a likely pullback'; confidence = 78 + Math.random() * 12 }
+      else if (midBull) { type = 'BUY'; reason = 'Mild dip below average — looking for a modest bounce toward the middle of the range'; confidence = 55 + Math.random() * 15 }
+      else if (midBear) { type = 'SELL'; reason = 'Price running hot above average — trimming into strength before mean reversion'; confidence = 53 + Math.random() * 15 }
       break
     }
     case 'Grid Bot': {
       const gridSize = (bb.upper - bb.lower) / 6
       const level = Math.floor((price - bb.lower) / gridSize)
-      if (level <= 1) { type = 'BUY'; reason = `Grid level ${level + 1}/6 — buying at lower grid zone`; confidence = 70 + Math.random() * 15 }
-      else if (level >= 4) { type = 'SELL'; reason = `Grid level ${level + 1}/6 — selling at upper grid zone`; confidence = 70 + Math.random() * 15 }
+      if (level <= 1) { type = 'BUY'; reason = 'Accumulating in the discount zone — price near the bottom of the trading range'; confidence = 70 + Math.random() * 15 }
+      else if (level >= 4) { type = 'SELL'; reason = 'Selling into strength — price near the top of the range, taking profits on the rally'; confidence = 70 + Math.random() * 15 }
       break
     }
     case 'DCA Strategy': {
       const dip = rsi < 45 && price < ema21
       const peak = rsi > 60 && price > ema9 * 1.02
-      if (dip) { type = 'BUY'; reason = `DCA buy: price dip below EMA21, RSI ${rsi.toFixed(1)}`; confidence = 72 + Math.random() * 15 }
-      else if (peak) { type = 'SELL'; reason = `DCA take-profit: price above EMA9 +2%, RSI ${rsi.toFixed(1)}`; confidence = 68 + Math.random() * 15 }
+      if (dip) { type = 'BUY'; reason = 'Adding on the dip — building position at a better average while price is below trend'; confidence = 72 + Math.random() * 15 }
+      else if (peak) { type = 'SELL'; reason = 'Target hit — trimming profits after a solid recovery from the dip'; confidence = 68 + Math.random() * 15 }
       break
     }
   }
@@ -279,7 +279,7 @@ class BotEngine {
   private syncIntervalId: ReturnType<typeof setInterval> | null = null
   private elapsed = 0
   private signal: AlgoSignal | null = null
-  private scanStatus = 'Initialising algorithm…'
+  private scanStatus = 'Warming up auto trader…'
   private listeners: Set<EngineListener> = new Set()
   private tradeCloseListeners: Set<TradeCloseListener> = new Set()
   private initialized = false
@@ -373,7 +373,7 @@ class BotEngine {
 
       // Resume loop if was running
       if (this.state.running) {
-        this.scanStatus = 'Resuming algorithm…'
+        this.scanStatus = 'Resuming live trading…'
         this.startLoop()
         // If no open trade exists after refresh, open one immediately
         if (!this.openTrade) {
@@ -423,7 +423,7 @@ class BotEngine {
   async start() {
     if (this.state.running) return
     this.state = { ...this.state, running: true }
-    this.scanStatus = 'Algorithm started — opening position…'
+    this.scanStatus = 'Auto trader started — opening first position…'
     this.tick = 0
     this.elapsed = 0
     await this.persistSettings()
@@ -534,7 +534,7 @@ class BotEngine {
       type: direction,
       reason: sig.type !== 'HOLD'
         ? sig.reason
-        : `${this.state.strategy} — EMA bias entry (${direction === 'BUY' ? 'EMA9 > EMA21' : 'EMA9 < EMA21'})`,
+        : `${this.state.strategy} — entering ${direction === 'BUY' ? 'long on bullish bias' : 'short on bearish bias'}`,
       confidence: Math.max(sig.confidence, this.state.confidenceThreshold),
       timestamp: Date.now(),
     }
@@ -568,13 +568,13 @@ class BotEngine {
       type: direction,
       reason: sig.type !== 'HOLD'
         ? sig.reason
-        : `${this.state.strategy} — EMA bias entry (${direction === 'BUY' ? 'EMA9 > EMA21' : 'EMA9 < EMA21'})`,
+        : `${this.state.strategy} — entering ${direction === 'BUY' ? 'long on bullish bias' : 'short on bearish bias'}`,
       confidence: Math.max(sig.confidence, this.state.confidenceThreshold),
       timestamp: Date.now(),
     }
 
     this.signal = entrySignal
-    this.scanStatus = `Force entry — opening ${direction} position…`
+    this.scanStatus = `Manual entry — opening ${direction} position…`
     this.notify()
 
     await this.executeTrade(entrySignal, price)
@@ -592,12 +592,12 @@ class BotEngine {
       const tick = this.tick
 
       const SCAN_MESSAGES = [
-        'Scanning price action…',
-        'Calculating RSI & MACD…',
-        'Checking Bollinger Bands…',
-        'Evaluating EMA crossover…',
-        'Analysing volume profile…',
-        'Running signal confirmation…',
+        'Watching price action across the chart…',
+        'Reviewing momentum and buying pressure…',
+        'Checking support and resistance levels…',
+        'Reading short-term trend direction…',
+        'Scanning for volume confirmation…',
+        'Confirming entry setup…',
       ]
       this.scanStatus = SCAN_MESSAGES[tick % SCAN_MESSAGES.length]
 
@@ -616,8 +616,8 @@ class BotEngine {
         if (newSignal.type !== 'HOLD') {
           const meetsThreshold = newSignal.confidence >= threshold
           this.scanStatus = meetsThreshold
-            ? `${newSignal.type} signal — ${newSignal.confidence.toFixed(0)}% confidence — executing…`
-            : `${newSignal.type} signal — ${newSignal.confidence.toFixed(0)}% (below ${threshold}% threshold)`
+            ? `${newSignal.type} setup looks strong (${newSignal.confidence.toFixed(0)}% conviction) — entering trade…`
+            : `${newSignal.type} setup forming (${newSignal.confidence.toFixed(0)}% conviction) — waiting for stronger confirmation`
           if (meetsThreshold) {
             this.executeTrade(newSignal, currentPrice)
           }
@@ -720,7 +720,7 @@ class BotEngine {
         // a mismatch (shown in panel but not in /user/positions).
         if (this.openTrade?.id === newTrade.id) this.openTrade = null
         this.trades = this.trades.filter((t) => t.id !== newTrade.id)
-        this.scanStatus = 'Trade entry failed — retrying next signal…'
+        this.scanStatus = 'Trade entry failed — watching for the next setup…'
       }
 
       // For AI Scalper 1m: schedule additional positions with random delay
@@ -740,7 +740,7 @@ class BotEngine {
               pnl: 0,
               pnlPct: 0,
               strategy: this.state.strategy,
-              signal: `${sig.reason} [position ${i + 1}/3]`,
+              signal: `${sig.reason} (scaling in — leg ${i + 1} of 3)`,
               openedAt: new Date().toISOString(),
               closedAt: null,
               status: 'open',
@@ -801,10 +801,10 @@ class BotEngine {
     } catch { /* non-critical */ }
 
     this.scanStatus = reason === 'take-profit'
-      ? `✓ Take-profit hit at ${exitPrice.toFixed(2)} — +${pnlPct.toFixed(2)}%`
+      ? `✓ Profit target reached at ${exitPrice.toFixed(2)} — +${pnlPct.toFixed(2)}%`
       : reason === 'stop-loss'
-        ? `✗ Stop-loss triggered at ${exitPrice.toFixed(2)} — ${pnlPct.toFixed(2)}%`
-        : `↺ Signal reversal — trade closed at ${exitPrice.toFixed(2)}`
+        ? `✗ Stop hit at ${exitPrice.toFixed(2)} — ${pnlPct.toFixed(2)}%`
+        : `↺ Market turned against us — closed at ${exitPrice.toFixed(2)}`
 
     // Re-open a new position shortly after close — same logic as on start/resume.
     // This prevents the bot from getting stuck in a HOLD loop after a trade closes.
@@ -960,7 +960,7 @@ class BotEngine {
     this.trades = []
     this.priceHistory = []
     this.signal = null
-    this.scanStatus = 'Initialising algorithm…'
+    this.scanStatus = 'Warming up auto trader…'
     this.elapsed = 0
     this.tick = 0
     this.initialized = false
