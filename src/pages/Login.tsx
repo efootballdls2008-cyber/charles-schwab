@@ -109,6 +109,17 @@ export default function Login() {
               required
             />
 
+            {/* Forgot Password Link */}
+            <div className="text-right">
+              <Link
+                to="/forgot-password"
+                className="text-xs font-semibold hover:underline transition-colors"
+                style={{ color: '#a28539' }}
+              >
+                Forgot Password?
+              </Link>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
