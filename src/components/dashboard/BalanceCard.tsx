@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from '../../services/authService'
 import { useBalanceActivity } from '../../hooks/useBalanceActivity'
 import type { ActivityItem, ActivityStyle } from '../../hooks/useBalanceActivity'
+import { formatSignedAmount } from '../../utils/computeProfit'
 
 interface BalanceCardProps {
   user: User | null
@@ -10,34 +11,66 @@ interface BalanceCardProps {
   onWithdraw?: () => void
 }
 
-// ─── Style map ────────────────────────────────────────────────────────────────
-
 const STYLE_MAP: Record<ActivityStyle, { color: string; bg: string; border: string }> = {
-  success: { color: '#4ade80', bg: 'rgba(74,222,128,0.15)',  border: 'rgba(74,222,128,0.25)' },
-  danger:  { color: '#f87171', bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.25)' },
-  warning: { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',  border: 'rgba(245,158,11,0.25)'  },
-  info:    { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)',  border: 'rgba(96,165,250,0.25)'  },
+  success: { color: '#4ade80', bg: 'rgba(74,222,128,0.15)', border: 'rgba(74,222,128,0.25)' },
+  danger: { color: '#f87171', bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.25)' },
+  warning: { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.25)' },
+  info: { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)', border: 'rgba(96,165,250,0.25)' },
+  neutral: { color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.22)' },
 }
 
-// ─── Anchor (Profit this month) ───────────────────────────────────────────────
+function buildAnchor(
+  pnl: number,
+  pct: number,
+  currencySymbol: string,
+  hasActivity: boolean,
+): ActivityItem {
+  if (!hasActivity) {
+    return {
+      id: '__anchor__',
+      style: 'neutral',
+      icon: 'fas fa-minus',
+      label: 'No trading activity this month',
+      amount: 0,
+      amountLabel: '—',
+      timestamp: '',
+    }
+  }
 
-function buildAnchor(pnl: number, pct: number, currencySymbol: string): ActivityItem {
-  const pos = pnl >= 0
+  if (pnl > 0) {
+    return {
+      id: '__anchor__',
+      style: 'success',
+      icon: 'fas fa-arrow-trend-up',
+      label: 'Profit this month',
+      amount: pnl,
+      amountLabel: formatSignedAmount(pnl, currencySymbol, { includePct: pct }),
+      timestamp: '',
+    }
+  }
+
+  if (pnl < 0) {
+    return {
+      id: '__anchor__',
+      style: 'danger',
+      icon: 'fas fa-arrow-trend-down',
+      label: 'Profit this month',
+      amount: pnl,
+      amountLabel: formatSignedAmount(pnl, currencySymbol, { includePct: pct }),
+      timestamp: '',
+    }
+  }
+
   return {
     id: '__anchor__',
-    style: pos ? 'success' : 'danger',
-    icon: pos ? 'fas fa-arrow-trend-up' : 'fas fa-arrow-trend-down',
+    style: 'neutral',
+    icon: 'fas fa-minus',
     label: 'Profit this month',
-    amount: pnl,
-    amountLabel: `${pos ? '+' : ''}${currencySymbol}${Math.abs(pnl).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} (${pos ? '+' : ''}${Math.abs(pct).toFixed(2)}%)`,
+    amount: 0,
+    amountLabel: `${currencySymbol}0.00 (0.00%)`,
     timestamp: '',
   }
 }
-
-// ─── Subline pill ─────────────────────────────────────────────────────────────
 
 function SublinePill({ item }: { item: ActivityItem }) {
   const s = STYLE_MAP[item.style]
@@ -57,27 +90,28 @@ function SublinePill({ item }: { item: ActivityItem }) {
   )
 }
 
-// ─── Rotating subline ─────────────────────────────────────────────────────────
-
 const FLASH_MS = 4000
 
 function BalanceSubline({
   monthlyPnl,
   monthlyPnlPct,
+  hasMonthlyActivity,
   flashEvent,
   dismissFlash,
   currencySymbol,
+  loading,
 }: {
   monthlyPnl: number
   monthlyPnlPct: number
+  hasMonthlyActivity: boolean
   flashEvent: ActivityItem | null
   dismissFlash: () => void
   currencySymbol: string
+  loading: boolean
 }) {
-  const anchor = buildAnchor(monthlyPnl, monthlyPnlPct, currencySymbol)
+  const anchor = buildAnchor(monthlyPnl, monthlyPnlPct, currencySymbol, hasMonthlyActivity)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // When a flash event arrives, auto-dismiss after 4s
   useEffect(() => {
     if (!flashEvent) return
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -89,7 +123,17 @@ function BalanceSubline({
     }
   }, [flashEvent, dismissFlash])
 
-  // What to display right now
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 mt-3 min-h-[28px]">
+        <span
+          className="inline-block h-6 w-36 rounded-full animate-pulse"
+          style={{ background: 'rgba(255,255,255,0.08)' }}
+        />
+      </div>
+    )
+  }
+
   const current = flashEvent ?? anchor
   const s = STYLE_MAP[current.style]
 
@@ -113,7 +157,6 @@ function BalanceSubline({
         </motion.span>
       </AnimatePresence>
 
-      {/* Progress bar — only shown during a flash event */}
       {flashEvent && (
         <div className="w-full mt-1.5">
           <motion.div
@@ -129,14 +172,18 @@ function BalanceSubline({
   )
 }
 
-// ─── Main BalanceCard ─────────────────────────────────────────────────────────
-
 export default function BalanceCard({ user }: BalanceCardProps) {
   const balance = user?.balance ?? 0
   const currencySymbol = user?.currencySymbol ?? '$'
 
-  const { monthlyPnl, monthlyPnlPct, flashEvent, dismissFlash } =
-    useBalanceActivity(user?.id, balance)
+  const {
+    monthlyPnl,
+    monthlyPnlPct,
+    hasMonthlyActivity,
+    flashEvent,
+    dismissFlash,
+    loading,
+  } = useBalanceActivity(user?.id, balance, currencySymbol)
 
   const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -155,7 +202,6 @@ export default function BalanceCard({ user }: BalanceCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Ambient glow blobs */}
       <div
         className="absolute pointer-events-none"
         style={{
@@ -171,7 +217,6 @@ export default function BalanceCard({ user }: BalanceCardProps) {
         }}
       />
 
-      {/* ── Header: label + chip ── */}
       <div className="flex items-start justify-between px-6 pt-6 pb-4">
         <div className="flex items-center gap-2">
           <p className="text-xs font-medium tracking-wide" style={{ color: 'rgba(196,181,253,0.75)' }}>
@@ -185,7 +230,6 @@ export default function BalanceCard({ user }: BalanceCardProps) {
           </button>
         </div>
 
-        {/* EMV chip */}
         <div
           className="rounded-md flex items-center justify-center flex-shrink-0"
           style={{ width: '38px', height: '30px', background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
@@ -202,10 +246,8 @@ export default function BalanceCard({ user }: BalanceCardProps) {
         </div>
       </div>
 
-      {/* ── Divider ── */}
       <div className="mx-6" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
 
-      {/* ── Balance + subline ── */}
       <div className="px-6 py-5 flex-1">
         <motion.p
           className="font-bold text-white leading-none"
@@ -221,16 +263,16 @@ export default function BalanceCard({ user }: BalanceCardProps) {
         <BalanceSubline
           monthlyPnl={monthlyPnl}
           monthlyPnlPct={monthlyPnlPct}
+          hasMonthlyActivity={hasMonthlyActivity}
           flashEvent={flashEvent}
           dismissFlash={dismissFlash}
           currencySymbol={currencySymbol}
+          loading={loading}
         />
       </div>
 
-      {/* ── Divider ── */}
       <div className="mx-6" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
 
-      {/* ── Visa wordmark ── */}
       <div className="px-6 py-5 flex justify-end">
         <p
           className="text-2xl font-black italic select-none"

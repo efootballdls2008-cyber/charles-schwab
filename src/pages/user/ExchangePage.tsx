@@ -245,7 +245,7 @@ function BotSettingsModal({
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)' }}>
                     <i className="fas fa-robot text-sm" style={{ color: '#a78bfa' }} />
                   </div>
-                  <span className="text-base font-bold text-white">Algorithm Settings</span>
+                  <span className="text-base font-bold text-white">Trading Bot Settings</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {algoState.running && (
@@ -274,11 +274,11 @@ function BotSettingsModal({
                 {/* Strategy description */}
                 <div className="rounded-xl p-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
                   <p className="text-xs leading-relaxed" style={{ color: '#9ca3af' }}>
-                    {local.strategy === 'AI Scalper Pro' && 'Requires RSI + MACD + EMA alignment before opening high-confidence trades. Prioritises Take Profit outcomes. On 1m timeframe, opens 3 positions within 1–5 minutes.'}
-                    {local.strategy === 'Trend Follower' && 'Uses EMA crossovers together with MACD direction to follow market trends. Win/loss ratio: ~7 wins per 10 trades.'}
-                    {local.strategy === 'Mean Reversion' && 'Buys at the lower Bollinger Band and sells at the upper Bollinger Band. Win/loss ratio: ~6 wins per 10 trades.'}
-                    {local.strategy === 'Grid Bot' && 'Splits the Bollinger Band range into 6 grid levels and performs buy-low/sell-high operations. Win/loss ratio: ~5 wins per 10 trades.'}
-                    {local.strategy === 'DCA Strategy' && 'Buys dips below EMA21 and takes profit above EMA9. Win/loss ratio: ~7 wins per 10 trades.'}
+                    {local.strategy === 'AI Scalper Pro' && 'Fast-paced scalping — only enters when momentum, trend, and price action align for a high-conviction trade. On 1m timeframe, scales into up to 3 positions within 1–5 minutes.'}
+                    {local.strategy === 'Trend Follower' && 'Follows the dominant market trend — rides moves higher in bull runs and steps aside when direction turns. Historically ~7 winning trades per 10.'}
+                    {local.strategy === 'Mean Reversion' && 'Fades extremes — buys when price is cheap relative to its range and sells when it runs hot. Historically ~6 winning trades per 10.'}
+                    {local.strategy === 'Grid Bot' && 'Trades the range — buys low, sells high across six price zones. Historically ~5 winning trades per 10.'}
+                    {local.strategy === 'DCA Strategy' && 'Adds on dips and banks profit on recoveries — patient accumulation with defined exit targets. Historically ~7 winning trades per 10.'}
                   </p>
                 </div>
 
@@ -321,10 +321,10 @@ function BotSettingsModal({
                   options={['1m', '5m', '15m', '30m', '1h', '4h', '1d']}
                 />
 
-                {/* Confidence Threshold */}
+                {/* Setup strength threshold */}
                 <div>
                   <label className="text-xs mb-1.5 block" style={{ color: '#9ca3af' }}>
-                    Min. Confidence Threshold (%)
+                    Min. Setup Strength (%)
                   </label>
                   <div className="flex items-center px-3 py-2.5 rounded-xl gap-2"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}>
@@ -339,7 +339,7 @@ function BotSettingsModal({
                     <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>%</span>
                   </div>
                   <p className="text-xs mt-1" style={{ color: '#4b5563' }}>
-                    Default: 45% — only signals above this confidence open trades
+                    Default: 45% — only enters trades when conviction meets this level
                   </p>
                 </div>
 
@@ -712,7 +712,7 @@ function TradePanelRight({
               whileTap={{ scale: 0.98 }}
             >
               <i className="fas fa-cog text-sm" style={{ color: '#a78bfa' }} />
-              <span className="text-sm font-bold" style={{ color: '#a78bfa' }}>Configure Algorithm</span>
+              <span className="text-sm font-bold" style={{ color: '#a78bfa' }}>Configure Auto Trader</span>
               <i className="fas fa-cog text-sm" style={{ color: '#a78bfa' }} />
             </motion.button>
           )}

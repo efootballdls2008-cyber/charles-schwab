@@ -87,10 +87,10 @@ function SignalBadge({ signal }: { signal: AlgoSignal | null }) {
             {signal.type}
           </span>
           <span className="text-xs font-semibold" style={{ color }}>
-            {signal.confidence.toFixed(0)}% confidence
+            {signal.confidence.toFixed(0)}% conviction
           </span>
         </div>
-        {/* Confidence bar */}
+        {/* Conviction bar */}
         <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
           <motion.div
             className="h-full rounded-full"
@@ -119,9 +119,9 @@ function IndicatorRow({ signal }: { signal: AlgoSignal | null }) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {[
-        { label: 'RSI', value: rsi.toFixed(1), color: rsiColor, sub: rsi < 35 ? 'Oversold' : rsi > 65 ? 'Overbought' : 'Neutral' },
-        { label: 'MACD', value: macd.toFixed(1), color: macdColor, sub: macd > 0 ? 'Bullish' : 'Bearish' },
-        { label: 'EMA', value: ema9 > ema21 ? '↑ Bull' : '↓ Bear', color: emaColor, sub: `9/${21}` },
+        { label: 'Momentum', value: rsi < 35 ? 'Low' : rsi > 65 ? 'High' : 'Balanced', color: rsiColor, sub: rsi < 35 ? 'Oversold' : rsi > 65 ? 'Overbought' : 'Neutral' },
+        { label: 'Trend', value: macd > 0 ? 'Rising' : 'Falling', color: macdColor, sub: macd > 0 ? 'Bullish' : 'Bearish' },
+        { label: 'Direction', value: ema9 > ema21 ? '↑ Up' : '↓ Down', color: emaColor, sub: ema9 > ema21 ? 'Long bias' : 'Short bias' },
       ].map((ind) => (
         <div
           key={ind.label}
@@ -250,7 +250,7 @@ function IdlePanel({ onStart, state }: { onStart: () => void; state: AlgoState }
         <i className="fas fa-robot text-2xl" style={{ color: '#a78bfa' }} />
       </div>
       <div>
-        <p className="text-sm font-bold text-white mb-1">Algorithm Ready</p>
+        <p className="text-sm font-bold text-white mb-1">Auto Trader Ready</p>
         <p className="text-xs leading-relaxed" style={{ color: '#6b7280' }}>
           Strategy: <span style={{ color: '#a78bfa' }}>{state.strategy}</span><br />
           Risk: <span style={{ color: '#f59e0b' }}>{state.riskLevel}</span> · Pair: <span className="text-white">{state.pair}</span>
@@ -268,7 +268,7 @@ function IdlePanel({ onStart, state }: { onStart: () => void; state: AlgoState }
         whileTap={{ scale: 0.97 }}
       >
         <i className="fas fa-play-circle mr-2" />
-        Start Algorithm
+        Start Auto Trader
       </motion.button>
     </motion.div>
   )
@@ -308,7 +308,7 @@ export default function AlgoBotPanel({
   onOpenSettings,
 }: AlgoBotPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const isScanning = scanStatus.includes('signal') || scanStatus.includes('Signal')
+  const isScanning = /setup|opening|entering|confirming|reviewing|watching|scanning|conviction|executing/i.test(scanStatus)
   const [stopWarning, setStopWarning] = useState(false)
   const [forceEntryLoading, setForceEntryLoading] = useState(false)
   const [forceEntryMsg, setForceEntryMsg] = useState<string | null>(null)
@@ -396,7 +396,7 @@ export default function AlgoBotPanel({
             />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs" style={{ color: '#6b7280' }}>Algorithm Status</p>
+            <p className="text-xs" style={{ color: '#6b7280' }}>Live Status</p>
             <motion.p
               key={scanStatus}
               className="text-xs font-semibold truncate"
@@ -577,7 +577,7 @@ export default function AlgoBotPanel({
                   }}
                   whileHover={!forceEntryLoading ? { background: 'rgba(251,191,36,0.2)' } : undefined}
                   whileTap={!forceEntryLoading ? { scale: 0.97 } : undefined}
-                  title="Open a position immediately, bypassing the confidence threshold"
+                  title="Open a position immediately without waiting for full conviction"
                 >
                   {forceEntryLoading ? (
                     <>
