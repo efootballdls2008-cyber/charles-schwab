@@ -12,7 +12,10 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from '../hooks/useAuth'
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+// VITE_API_URL is "/api" in production (Vercel rewrite), which can't carry a
+// WebSocket and would be read by socket.io as a namespace. Use the dedicated
+// VITE_SOCKET_URL (backend origin) instead.
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3002'
 
 interface SocketContextValue {
   socket: Socket | null

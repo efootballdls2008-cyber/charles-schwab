@@ -4,7 +4,7 @@ import DashboardSidebar from '../../components/dashboard/DashboardSidebar'
 import DashboardHeader from '../../components/dashboard/DashboardHeader'
 import { ENDPOINTS } from '../../api/endpoints'
 
-const BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3001'
+const BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3002'
 
 type IdType = 'passport' | 'drivers_license' | 'national_id'
 type KycStatus = 'pending' | 'approved' | 'rejected'

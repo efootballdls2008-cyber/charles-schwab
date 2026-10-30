@@ -11,7 +11,7 @@ export interface TickerData {
 }
 
 // Route all market data through our own backend to avoid CORS and geo-restrictions.
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
 /** Fetch ticker via the backend proxy */
 async function fetchTickerRest(baseSymbol: string): Promise<TickerData | null> {

@@ -13,6 +13,8 @@ import { useAuth } from './hooks/useAuth'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Contact from './pages/Contact'
 import Education from './pages/Education'
 
@@ -57,6 +59,8 @@ function AppContent() {
         {/* Auth routes — no Header/Footer */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Public routes with shared Header/Footer layout */}
         <Route element={<Layout />}>
