@@ -20,4 +20,5 @@ export const dashNavItems: DashNavItem[] = [
   { key: 'settings',     label: 'Settings',      icon: 'fas fa-cog',          to: '/user/settings' },
   { key: 'kyc',          label: 'KYC Verify',    icon: 'fas fa-id-card',      to: '/user/kyc' },
   { key: 'notifications', label: 'Notifications', icon: 'fas fa-bell',         to: '/user/notifications' },
+  { key: 'support',      label: 'Support',       icon: 'fas fa-headset',      to: '/user/support' },
 ]

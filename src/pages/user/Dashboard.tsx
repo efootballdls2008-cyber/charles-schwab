@@ -119,7 +119,7 @@ function BotSettingsModal({
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)' }}>
                     <i className="fas fa-robot text-sm" style={{ color: '#a78bfa' }} />
                   </div>
-                  <span className="text-base font-bold text-white">Algorithm Settings</span>
+                  <span className="text-base font-bold text-white">Trading Bot Settings</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {algoState.running && (
@@ -148,11 +148,11 @@ function BotSettingsModal({
                 {/* Strategy description */}
                 <div className="rounded-xl p-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
                   <p className="text-xs leading-relaxed" style={{ color: '#9ca3af' }}>
-                    {local.strategy === 'AI Scalper Pro' && 'Combines RSI, MACD crossover, and EMA alignment for high-frequency scalping with tight risk controls.'}
-                    {local.strategy === 'Trend Follower' && 'Rides strong directional trends using EMA9/EMA21 crossovers and MACD momentum confirmation.'}
-                    {local.strategy === 'Mean Reversion' && 'Buys oversold dips and sells overbought peaks using Bollinger Bands and RSI divergence.'}
-                    {local.strategy === 'Grid Bot' && 'Places buy/sell orders at fixed price intervals within Bollinger Band range for range-bound markets.'}
-                    {local.strategy === 'DCA Strategy' && 'Dollar-cost averages into positions on dips and takes profit on significant price recoveries.'}
+                    {local.strategy === 'AI Scalper Pro' && 'Fast-paced scalping — enters quick long and short trades when momentum, trend, and price action all line up. Tight risk controls for high win-rate setups.'}
+                    {local.strategy === 'Trend Follower' && 'Rides the prevailing market direction — buys strength in uptrends and exits when momentum fades. Best when the market is moving clearly one way.'}
+                    {local.strategy === 'Mean Reversion' && 'Buys pullbacks to support and sells rallies into resistance — profits when price snaps back toward its average.'}
+                    {local.strategy === 'Grid Bot' && 'Range trading — accumulates near the bottom of the range and takes profit near the top. Works best in sideways markets.'}
+                    {local.strategy === 'DCA Strategy' && 'Builds positions on dips and takes profit on recoveries — smooths entry over time instead of chasing price.'}
                   </p>
                 </div>
 

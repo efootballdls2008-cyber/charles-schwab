@@ -31,4 +31,5 @@ export const ENDPOINTS = {
   kyc: '/kyc',
   kycMe: '/kyc/me',
   ticker: (symbol: string) => `/ticker/${symbol.toUpperCase()}USDT`,
+  support: '/support',
 }

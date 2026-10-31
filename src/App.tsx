@@ -49,6 +49,7 @@ import ExchangePage from './pages/user/ExchangePage'
 import NotificationsPage from './pages/user/Notifications'
 import Positions from './pages/user/Positions'
 import KYCPage from './pages/user/KYC'
+import SupportPage from './pages/user/Support'
 
 function AppContent() {
   const { user } = useAuth()
@@ -100,6 +101,7 @@ function AppContent() {
         <Route path="/user/notifications" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
         <Route path="/user/positions"     element={<PrivateRoute><Positions /></PrivateRoute>} />
         <Route path="/user/kyc"           element={<PrivateRoute><KYCPage /></PrivateRoute>} />
+        <Route path="/user/support"       element={<PrivateRoute><SupportPage /></PrivateRoute>} />
       </Routes>
 
       {/* Global notification toasts and sounds for authenticated users */}
