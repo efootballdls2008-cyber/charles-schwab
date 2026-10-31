@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
-import api from '../../api/client'
+import { post } from '../../api/client'
 import { ENDPOINTS } from '../../api/endpoints'
 
 type SubjectOption = 
@@ -54,18 +54,21 @@ export default function Support() {
     setError('')
 
     try {
-      const response = await api.post(ENDPOINTS.support, {
-        subject,
-        message: message.trim(),
-        priority,
-      })
+      const response = await post<{ success: boolean; message: string; ticketRef: string }>(
+        ENDPOINTS.support,
+        {
+          subject,
+          message: message.trim(),
+          priority,
+        }
+      )
 
-      if (response.data.success) {
-        setTicketRef(response.data.ticketRef)
+      if (response.success) {
+        setTicketRef(response.ticketRef)
         setSuccess(true)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to submit support request')
+      setError(err.message || 'Failed to submit support request')
     } finally {
       setLoading(false)
     }
@@ -330,12 +333,6 @@ export default function Support() {
                     </p>
                     <p className="text-xs text-gray-400">{user?.email}</p>
                   </div>
-                  {user?.isVerified && (
-                    <div className="flex items-center gap-1 text-xs font-semibold text-green-400">
-                      <i className="fas fa-check-circle" />
-                      Verified
-                    </div>
-                  )}
                 </div>
 
                 {/* Error */}
