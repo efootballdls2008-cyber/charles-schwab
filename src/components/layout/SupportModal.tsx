@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { post } from '../../api/client'
 import { ENDPOINTS } from '../../api/endpoints'
 
@@ -19,6 +19,8 @@ const SUBJECT_OPTIONS = [
 
 export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
     subject: '',
     message: '',
     priority: 'medium' as 'low' | 'medium' | 'high'
@@ -35,19 +37,23 @@ export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
     setErrorMessage('')
 
     try {
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject,
+        message: formData.message.trim(),
+        priority: formData.priority
+      }
+
       const response = await post<{ success: boolean; message: string; ticketRef: string }>(
         ENDPOINTS.support,
-        {
-          subject: formData.subject,
-          message: formData.message.trim(),
-          priority: formData.priority
-        }
+        payload
       )
 
       setSubmitStatus('success')
       setTicketRef(response.ticketRef || '')
       // Reset form
-      setFormData({ subject: '', message: '', priority: 'medium' })
+      setFormData({ name: '', email: '', subject: '', message: '', priority: 'medium' })
       
       // Auto close after 3 seconds on success
       setTimeout(() => {
@@ -81,11 +87,11 @@ export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
       onClick={handleClose}
     >
       <div 
-        className="bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-purple-500/20 transform transition-all"
+        className="bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 rounded-2xl shadow-2xl max-w-lg w-full border border-purple-500/20 transform transition-all max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+        <div className="flex items-center justify-between p-6 border-b border-gray-700/50 sticky top-0 bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 z-10">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-3">
               <i className="fas fa-headset text-white text-xl"></i>
@@ -117,7 +123,7 @@ export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
                   Reference: <span className="font-mono font-bold">{ticketRef}</span>
                 </p>
                 <p className="text-green-300/80 text-sm mt-1">
-                  Our support team will respond to you shortly via email and in-app notification.
+                  Our support team will respond to your email shortly.
                 </p>
               </div>
             </div>
@@ -133,6 +139,42 @@ export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
               </div>
             </div>
           )}
+
+          {/* Name Field */}
+          <div>
+            <label htmlFor="support-name" className="block text-sm font-medium text-gray-300 mb-2">
+              Your Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              id="support-name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="Enter your full name"
+              required
+              minLength={1}
+              maxLength={100}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Email Field */}
+          <div>
+            <label htmlFor="support-email" className="block text-sm font-medium text-gray-300 mb-2">
+              Email Address <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="email"
+              id="support-email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="your.email@example.com"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
 
           {/* Subject Field */}
           <div>
@@ -258,7 +300,7 @@ export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
               <i className="fas fa-clock text-blue-400 text-lg mt-0.5"></i>
               <div className="text-sm text-gray-300">
                 <p className="font-medium text-blue-300">Average Response Time: 2-4 hours</p>
-                <p className="text-gray-400 mt-1">Our support team typically responds within a few hours during business days. You'll receive notifications via email and in your dashboard.</p>
+                <p className="text-gray-400 mt-1">Our support team typically responds within a few hours during business days. You'll receive a response via email.</p>
               </div>
             </div>
           </div>
