@@ -74,7 +74,7 @@ function SVGLineChart({
     : ''
 
   // Y-axis ticks (4 evenly spaced)
-  const yTicks = [0, 1, 2, 3].map(i => yMin + (yRange * i) / 3)
+  const yTicks = [0, 1, 2, 3].map((i: number) => yMin + (yRange * i) / 3)
 
   // X-axis: show every Nth label to avoid crowding
   const showEvery = data.length > 20 ? 4 : data.length > 12 ? 2 : 1
@@ -137,7 +137,7 @@ function SVGLineChart({
         </defs>
 
         {/* Y-axis grid lines + labels */}
-        {yTicks.map((tick, i) => {
+        {yTicks.map((tick: number, i: number) => {
           const yPos = PAD_T + (1 - (tick - yMin) / yRange) * chartH
           return (
             <g key={i}>
@@ -166,7 +166,7 @@ function SVGLineChart({
         )}
 
         {/* X-axis labels */}
-        {points.map((p, i) => i % showEvery === 0 && (
+        {points.map((p: { x: number; y: number; label: string; value: number }, i: number) => i % showEvery === 0 && (
           <text
             key={i}
             x={p.x} y={H - 4}
@@ -262,7 +262,7 @@ export default function ProfitLineChart() {
   // Running cumulative line (shows growth curve, not per-period bars)
   const cumulativeData = useMemo<ProfitDataPoint[]>(() => {
     let running = 0
-    return chartData.map(d => {
+    return chartData.map((d: ProfitDataPoint) => {
       running += d.profit
       return { day: d.day, profit: running }
     })

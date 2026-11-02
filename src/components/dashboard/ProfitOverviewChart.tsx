@@ -104,7 +104,7 @@ function CSSBarChart({ data, sym }: { data: ProfitDataPoint[]; sym: string }) {
     return `${sym}${a.toFixed(2)}`
   }
 
-  const yTicks = [0.25, 0.5, 0.75, 1].map(f => yMax * f)
+  const yTicks = [0.25, 0.5, 0.75, 1].map((f: number) => yMax * f)
 
   return (
     <div ref={wrapRef} className="relative w-full select-none" style={{ height: `${CHART_H + LABEL_H + 4}px` }}>
@@ -114,7 +114,7 @@ function CSSBarChart({ data, sym }: { data: ProfitDataPoint[]; sym: string }) {
         className="absolute pointer-events-none"
         style={{ left: 0, right: 0, top: 0, bottom: `${LABEL_H}px` }}
       >
-        {yTicks.map((tick, i) => {
+        {yTicks.map((tick: number, i: number) => {
           const pct = (tick / yMax) * 100
           return (
             <div
