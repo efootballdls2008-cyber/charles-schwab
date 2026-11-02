@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useProfitOverview } from '../../hooks/useProfitOverview'
 import type { ProfitPeriod, ProfitDataPoint } from '../../hooks/useProfitOverview'
 
-const PERIODS: ProfitPeriod[] = ['Today', 'This Week', 'This Month', 'This Year']
+const PERIODS: ProfitPeriod[] = ['Today', 'This Week', 'This Month', 'This Year', 'All Time']
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
